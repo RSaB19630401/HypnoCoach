@@ -27,7 +27,7 @@ var useEffect = React.useEffect;
 // ═══════════════════════════════════════
 // HIER DEINE WORKER-URL EINTRAGEN:
 // ═══════════════════════════════════════
-var WORKER_URL = "https://hypnocoach.rsab1963.workers.dev";
+var WORKER_URL = "https://coaching-api.DEIN-NAME.workers.dev";
 // Ersetze DEIN-NAME mit deinem Cloudflare-Subdomain-Namen
 // ═══════════════════════════════════════
 
@@ -149,7 +149,7 @@ function App() {
     for(var i=0;i<msgs.length;i++)ctx.push({role:msgs[i].role,content:msgs[i].content});
     apiCall(COACH_SYS,ctx,function(reply){
       setCases(function(prev){var u2=prev.slice();u2[aC].sessions[aS].messages.push({role:"assistant",content:reply});u2[aC].updatedAt=new Date().toISOString();
-        if(u2[aC].sessions[aS].messages.length<=3&&u2[aC].title==="Neues Thema")u2[aC].title=text.trim().slice(0,50);sSave(u2);return u2;});
+        if(u2[aC].sessions[aS].messages.length<=3&&u2[aC].title==="Neues Thema")u2[aC].title=text.trim().slice(0,100);sSave(u2);return u2;});
       setWait(false);
     },function(e){setErr(e);setWait(false);});
   };
@@ -201,6 +201,22 @@ function App() {
   var doRestore=function(){try{var p=JSON.parse(dataTx.trim());if(!Array.isArray(p))throw new Error("Ungueltig");var ids={};for(var i=0;i<cases.length;i++)ids[cases[i].id]=true;var nw=[];for(var j=0;j<p.length;j++){if(!ids[p[j].id])nw.push(p[j]);}if(nw.length===0){setDataEr("Bereits vorhanden.");return;}save(cases.concat(nw));setDataMod(null);setImpOk(nw.length+" importiert");}catch(e){setDataEr("Fehler: "+e.message);}};
   var fileImp=function(e){var f=e.target.files&&e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){setDataTx(ev.target.result);setDataEr("");};r.readAsText(f);};
 
+  var importSingleCase=function(e){
+    var f=e.target.files&&e.target.files[0];if(!f)return;
+    var r=new FileReader();
+    r.onload=function(ev){
+      try{
+        var c=JSON.parse(ev.target.result);
+        if(!c.id||!c.title||!Array.isArray(c.sessions))throw new Error("Ungueltige Fall-Datei");
+        var ids={};for(var i=0;i<cases.length;i++)ids[cases[i].id]=true;
+        if(ids[c.id]){c.id=String(Date.now());}
+        save(cases.concat([c]));
+        setImpOk("Fall '"+c.title+"' importiert");
+      }catch(err){setImpOk("Fehler: "+err.message);}
+    };
+    r.readAsText(f);
+  };
+
   // ═══ HOME ═══
   if(view==="home") return h("div",{style:Object.assign({},BOX,{minHeight:"100vh",background:P.bg,color:P.txt})},
     h("div",{style:{textAlign:"center",padding:mob?"28px 12px":"40px 24px"}},
@@ -210,7 +226,8 @@ function App() {
       h("button",{onClick:function(){var i=newCase();newSess(i);},style:{marginTop:16,padding:"12px 26px",borderRadius:22,border:"none",background:P.warm,color:"white",fontSize:15,fontWeight:600,cursor:"pointer"}},"Neues Thema"),
       h("div",{style:{marginTop:10,display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap"}},
         cases.length>0&&h("button",{onClick:doBackup,style:{padding:"4px 10px",borderRadius:12,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:11,color:P.txtLt}},"Backup"),
-        h("button",{onClick:function(){setDataMod("import");setDataTx("");setDataEr("");},style:{padding:"4px 10px",borderRadius:12,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:11,color:P.txtLt}},"Import")
+        h("button",{onClick:function(){setDataMod("import");setDataTx("");setDataEr("");},style:{padding:"4px 10px",borderRadius:12,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:11,color:P.txtLt}},"Import"),
+        h("label",{style:{padding:"4px 10px",borderRadius:12,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:11,color:P.txtLt}},"Fall laden",h("input",{type:"file",accept:".json",onChange:importSingleCase,style:{display:"none"}}))
       )
     ),
     h("div",{style:Object.assign({},BOX,{maxWidth:620,margin:"0 auto",padding:"0 10px 40px"})},
@@ -225,7 +242,8 @@ function App() {
         h("div",{style:{display:"flex",gap:3,flexWrap:"wrap"}},
           h("button",{onClick:function(){newSess(ci);},style:{padding:"4px 10px",borderRadius:12,border:"1.5px solid "+P.acc,background:P.accLt,cursor:"pointer",fontSize:10,fontWeight:600,color:P.acc}},"+Sitzung"),
           h("button",{onClick:function(){dlFile('\ufeff'+buildDoc(ci),(c.title||"doc")+".doc","application/msword");},style:{padding:"4px 8px",borderRadius:12,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:10,color:P.txtLt}},"Word"),
-          h("button",{onClick:function(){dlFile(buildDoc(ci),(c.title||"doc")+".html","text/html");},style:{padding:"4px 8px",borderRadius:12,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:10,color:P.txtLt}},"HTML")),
+          h("button",{onClick:function(){dlFile(buildDoc(ci),(c.title||"doc")+".html","text/html");},style:{padding:"4px 8px",borderRadius:12,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:10,color:P.txtLt}},"HTML"),
+          h("button",{onClick:function(){dlFile(JSON.stringify(c,null,2),(c.title||"fall")+".json","application/json");},style:{padding:"4px 8px",borderRadius:12,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:10,color:P.txtLt}},"Sichern")),
         cfmDel===ci&&h("div",{style:{marginTop:4,padding:"4px 8px",background:P.dangerLt,borderRadius:4,display:"flex",justifyContent:"space-between",alignItems:"center"}},h("span",{style:{fontSize:10,color:P.danger}},"Loeschen?"),h("div",{style:{display:"flex",gap:3}},h("button",{onClick:function(){delCase(ci);},style:{padding:"2px 6px",borderRadius:4,border:"none",background:P.danger,color:"white",cursor:"pointer",fontSize:9}},"Ja"),h("button",{onClick:function(){setCfmDel(null);},style:{padding:"2px 6px",borderRadius:4,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:9}},"Nein")))
       );})
     ),
