@@ -141,7 +141,7 @@ function App() {
 
   var newCase=function(){var nc={id:String(Date.now()),title:"Neues Thema",createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),sessions:[],sketches:[],summary:""};var u=cases.concat([nc]);save(u);return u.length-1;};
   var newSess=function(ci){var u=cases.slice();u[ci].sessions.push({id:String(Date.now()),startedAt:new Date().toISOString(),messages:[]});u[ci].updatedAt=new Date().toISOString();save(u);setAC(ci);setAS(u[ci].sessions.length-1);setView("chat");setSbOpen(false);setShowSk(false);setSkI(-1);};
-  var resSess=function(ci,si){setAC(ci);setAS(si);setView("chat");setSbOpen(false);setShowSk(false);};
+  var resSess=function(ci,si){var fresh=sLoad();setCases(fresh);setAC(ci);setAS(si);setView("chat");setSbOpen(false);setShowSk(false);};
   var delCase=function(ci){save(cases.filter(function(_,i){return i!==ci;}));if(aC===ci){setAC(null);setAS(null);setView("home");}setCfmDel(null);};
 
   var send=function(text){
