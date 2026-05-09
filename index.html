@@ -11,6 +11,7 @@ body{font-family:system-ui,sans-serif;background:#f7f3ec;color:#3d3229;overflow:
 input,textarea{font-size:16px!important}
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-thumb{background:#d4c5a9;border-radius:3px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 </style>
 </head>
 <body>
@@ -27,7 +28,7 @@ var useEffect = React.useEffect;
 // ═══════════════════════════════════════
 // HIER DEINE WORKER-URL EINTRAGEN:
 // ═══════════════════════════════════════
-var WORKER_URL = "https://hypnocoach.rsab1963.workers.dev";
+var WORKER_URL = "https://coaching-api.DEIN-NAME.workers.dev";
 // Ersetze DEIN-NAME mit deinem Cloudflare-Subdomain-Namen
 // ═══════════════════════════════════════
 
@@ -123,7 +124,11 @@ function App() {
   var _de=useState(""),dataEr=_de[0],setDataEr=_de[1];
   var _io=useState(""),impOk=_io[0],setImpOk=_io[1];
   var endRef=useRef(null);
+  var _lis=useState(false),isListening=_lis[0],setIsListening=_lis[1];
+  var speechRef=useRef(null);
+  var baseTextRef=useRef("");
   var mob=typeof window!=="undefined"&&window.innerWidth<700;
+  var hasSpeech=typeof window!=="undefined"&&(window.SpeechRecognition||window.webkitSpeechRecognition);
 
   var save=function(u){setCases(u);sSave(u);};
   var curM=[];
@@ -152,6 +157,32 @@ function App() {
         if(u2[aC].sessions[aS].messages.length<=3&&u2[aC].title==="Neues Thema")u2[aC].title=text.trim().slice(0,100);sSave(u2);return u2;});
       setWait(false);
     },function(e){setErr(e);setWait(false);});
+  };
+  var toggleSpeech=function(){
+    var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){setErr("Spracheingabe wird von diesem Browser nicht unterstuetzt");return;}
+    if(isListening){
+      if(speechRef.current){try{speechRef.current.stop();}catch(e){}}
+      setIsListening(false);return;
+    }
+    var rec=new SR();
+    rec.lang="de-DE";
+    rec.continuous=true;
+    rec.interimResults=true;
+    baseTextRef.current=inp;
+    speechRef.current=rec;
+    rec.onresult=function(event){
+      var transcript="";
+      for(var i=0;i<event.results.length;i++){transcript+=event.results[i][0].transcript;}
+      var base=baseTextRef.current;
+      if(base&&base.trim()){setInp(base+" "+transcript);}else{setInp(transcript);}
+    };
+    rec.onerror=function(event){
+      if(event.error!=="aborted"){setErr("Mikrofon: "+event.error);}
+      setIsListening(false);
+    };
+    rec.onend=function(){setIsListening(false);};
+    try{rec.start();setIsListening(true);}catch(e){setErr("Mikrofon: "+e.message);setIsListening(false);}
   };
   var genSum=function(ci){if(!cases[ci])return;var all=[];var ss=cases[ci].sessions;for(var i=0;i<ss.length;i++)for(var j=0;j<ss[i].messages.length;j++)all.push(ss[i].messages[j]);if(all.length<4)return;var t="";for(var k=0;k<all.length;k++)t+=(all[k].role==="user"?"Klient":"Coach")+": "+all[k].content+"\n";apiCall(SUMMARY_SYS,[{role:"user",content:t.slice(-4000)}],function(s){setCases(function(prev){var u=prev.slice();u[ci].summary=s;sSave(u);return u;});},function(e){});};
   var genSketch=function(){if(aC===null)return;var all=[];var ss=cases[aC].sessions;for(var i=0;i<ss.length;i++)for(var j=0;j<ss[i].messages.length;j++)all.push(ss[i].messages[j]);if(all.length<2){setErr("Erst ein Gespraech fuehren.");return;}setSkLd(true);setShowSk(true);var t="";var start=Math.max(0,all.length-40);for(var k=start;k<all.length;k++)t+=(all[k].role==="user"?"Klient":"Coach")+": "+all[k].content+"\n";apiCall(SKETCH_SYS,[{role:"user",content:t}],function(raw){try{var cleaned=raw.replace(/```json/g,"").replace(/```/g,"").trim();var parsed=JSON.parse(cleaned);parsed.createdAt=new Date().toISOString();setCases(function(prev){var u=prev.slice();u[aC].sketches.push(parsed);sSave(u);return u;});setSkI(curSk.length);}catch(e){setErr("Skizze: "+e.message);}setSkLd(false);},function(e){setErr("Skizze: "+e);setSkLd(false);});};
@@ -262,8 +293,9 @@ function App() {
       h("div",{style:{display:"flex",gap:2}},h("button",{onClick:genSketch,disabled:skLd,style:{padding:"2px 5px",borderRadius:8,border:"1px solid "+P.warm,background:P.warmLt,cursor:"pointer",fontSize:9,color:P.warmDk}},"Skizze"))),
     h("div",{style:Object.assign({},BOX,{padding:"6px 4px",background:"white",borderBottom:"1px solid "+P.brd})},
       h("div",{style:Object.assign({},BOX,{display:"flex",gap:3})},
-        h("input",{value:inp,onChange:function(e){setInp(e.target.value);},onKeyDown:function(e){if(e.key==="Enter")send(inp);},placeholder:"Nachricht...",style:{display:"block",width:"1px",flex:"1 1 auto",minWidth:0,padding:"8px 6px",borderRadius:8,border:"1px solid "+P.brd,fontSize:16,boxSizing:"border-box"}}),
-        h("button",{onClick:function(){send(inp);},disabled:!inp.trim()||wait,style:{flexShrink:0,width:36,height:36,borderRadius:8,border:"none",background:inp.trim()?P.warm:P.brd,color:"white",cursor:inp.trim()?"pointer":"not-allowed",fontSize:14}},"Go")),
+        h("input",{value:inp,onChange:function(e){setInp(e.target.value);},onKeyDown:function(e){if(e.key==="Enter"){if(isListening&&speechRef.current){try{speechRef.current.stop();}catch(e2){}}send(inp);}},placeholder:isListening?"Sprich jetzt...":"Nachricht...",style:{display:"block",width:"1px",flex:"1 1 auto",minWidth:0,padding:"8px 6px",borderRadius:8,border:"1px solid "+(isListening?"#e74c3c":P.brd),fontSize:16,boxSizing:"border-box"}}),
+        hasSpeech&&h("button",{onClick:toggleSpeech,style:{flexShrink:0,width:36,height:36,borderRadius:8,border:isListening?"2px solid #e74c3c":"1px solid "+P.brd,background:isListening?"#fde8e8":"white",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",animation:isListening?"pulse 1.5s infinite":"none"}},isListening?"\u23F9":"\uD83C\uDFA4"),
+        h("button",{onClick:function(){if(isListening&&speechRef.current){try{speechRef.current.stop();}catch(e2){}}send(inp);},disabled:!inp.trim()||wait,style:{flexShrink:0,width:36,height:36,borderRadius:8,border:"none",background:inp.trim()?P.warm:P.brd,color:"white",cursor:inp.trim()?"pointer":"not-allowed",fontSize:14}},"Go")),
       wait&&h("div",{style:{padding:"4px 6px",color:P.txtLt,fontSize:11}},"Denkt nach..."),
       err&&h("div",{style:{padding:"3px 6px",borderRadius:4,background:P.dangerLt,color:P.danger,fontSize:10,marginTop:3}},err," ",h("button",{onClick:function(){setErr(null);},style:{marginLeft:4,background:"none",border:"none",cursor:"pointer",color:P.danger,fontSize:9}},"X"))),
     h("div",{style:Object.assign({},BOX,{flex:1,display:"flex",overflow:"hidden",position:"relative"})},
