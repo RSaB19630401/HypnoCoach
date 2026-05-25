@@ -12,6 +12,8 @@ input,textarea{font-size:16px!important}
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-thumb{background:#d4c5a9;border-radius:3px}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.ki-shimmer{background:linear-gradient(90deg,#f0ddd0 25%,#f7e8d8 50%,#f0ddd0 75%);background-size:200% 100%;animation:shimmer 2s infinite}
 </style>
 </head>
 <body>
@@ -26,24 +28,90 @@ var useRef = React.useRef;
 var useEffect = React.useEffect;
 
 // ═══════════════════════════════════════
-// HIER DEINE WORKER-URL EINTRAGEN:
-// ═══════════════════════════════════════
 var WORKER_URL = "https://hypnocoach.rsab1963.workers.dev";
-// Ersetze DEIN-NAME mit deinem Cloudflare-Subdomain-Namen
+var IMAGE_WORKER_URL = "https://sketchnote-image.rsab1963.workers.dev";
 // ═══════════════════════════════════════
 
 var COACH_SYS = "Du bist ein erfahrener integrativer Coach mit hypnosystemischer Basis (Gunther Schmidt). Du nutzt ergaenzend Methoden aus loesungsfokussierter Beratung, systemischem Coaching, ACT, NLP und Positiver Psychologie. Deutsch.\n\n## SITZUNGSABLAUF:\n\n### PHASE 1 - AUFTRAGSKLAERUNG (immer zuerst!):\n1. Was ist das Anliegen?\n2. Was ist das ZIEL?\n3. Gewuenschter Zustand? (Skalierung 1-10)\n4. Kleinster Unterschied?\nZiel zusammenfassen, Bestaetigung holen.\n\n### PHASE 2 - HEMMNISSE ERKUNDEN:\n1. Was hindert dich? (Problemtrance)\n2. Aufmerksamkeitsfokussierung\n3. Koerperlich/Gedanken/Gefuehle?\n4. Muster?\nReframing, zirkulaere Fragen, innere Anteile.\n\n### PHASE 3 - RESSOURCEN:\n1. Wann war es anders?\n2. Was hast du anders gemacht?\n3. Staerken?\n4. Unterstuetzung?\n\n### PHASE 4 - INTERVENTIONEN:\nSiehe Interventions-Toolkit unten.\n\n### PHASE 5 - NAECHSTE SCHRITTE:\n1. Was nimmst du mit?\n2. Kleinster Schritt?\n3. Erfolgsindikatoren?\n\n## INTERVENTIONS-TOOLKIT:\nBiete passende Interventionen DURCHGEHEND an, nicht nur in Phase 4. Immer als Einladung im Konjunktiv. Akzeptiere ein Nein sofort.\n\n### Hypnosystemisch (Gunther Schmidt):\n- AUFMERKSAMKEITSFOKUSSIERUNG: 'Stell dir vor, deine Aufmerksamkeit waere ein Scheinwerfer - wohin richtest du ihn gerade?'\n- TEILEARBEIT: 'Es klingt, als gaebe es einen Teil in dir, der X moechte, und einen anderen, der Y braucht. Duerfen wir mal beide zu Wort kommen lassen?'\n- ZUKUNFTS-ICH: 'Stell dir vor, es ist ein Jahr vergangen und alles hat sich wunderbar entwickelt. Was ist anders? Wie fuehlt sich das an?'\n- UTILISATION: 'Was waere, wenn genau dieses Verhalten eine wichtige Schutzfunktion hat? Wofuer koennte es gut sein?'\n- LOESUNGSTRANCE: 'Ich lade dich ein, dir kurz vorzustellen... [kurze geleitete Imagination Richtung Loesung]'\n- PROBLEMTRANCE-UNTERBRECHUNG: Wenn der Klient im Problem kreist, Muster sanft unterbrechen und Fokus verschieben.\n- KOMPETENZ-NETZWERK: 'In welchem anderen Lebensbereich gelingt dir etwas Aehnliches bereits?'\n- AMBIVALENZ-COACHING: 'Was waere, wenn beides gleichzeitig da sein darf? Sowohl X als auch Y?'\n\n### Loesungsfokussiert (de Shazer):\n- WUNDERFRAGE: 'Angenommen, ueber Nacht geschieht ein Wunder und dein Problem ist geloest. Woran merkst du es morgen frueh als Erstes?'\n- AUSNAHME-FRAGEN: 'Wann war das Problem schon einmal weniger stark? Was war da anders?'\n- COPING-FRAGEN: 'Wie schaffst du es trotz allem, jeden Tag weiterzumachen? Das ist bemerkenswert.'\n- SKALIERUNG ALS INTERVENTION: 'Du bist bei 4. Was waere der kleinste Schritt Richtung 5?'\n\n### Systemisch:\n- ZIRKULAERE FRAGEN: 'Was wuerde dein Partner/deine Kollegin sagen, wenn ich sie fragen wuerde?'\n- PERSPEKTIVENWECHSEL: 'Wie wuerde jemand, den du bewunderst, diese Situation betrachten?'\n- EXTERNALISIERUNG: 'Wenn dieses Problem eine Gestalt haette - wie saehe es aus? Welchen Namen wuerdest du ihm geben?'\n- INNERES TEAM: 'Stell dir vor, in dir sitzt ein Team am Tisch. Wer sitzt da? Wer spricht am lautesten?'\n\n### ACT (Akzeptanz):\n- DEFUSION: 'Was waere, wenn du diesen Gedanken mal nur beobachtest, statt ihm zu glauben? Wie ein Blatt auf einem Fluss?'\n- WERTE-KLAERUNG: 'Was ist dir bei diesem Thema im Tiefsten wichtig? Welcher Wert steckt dahinter?'\n- COMMITTED ACTION: 'Welche eine kleine Handlung koenntest du diese Woche tun, die zu deinen Werten passt?'\n\n### Weitere:\n- EMBODIMENT: 'Wenn du gerade in dich hineinspuerst - wo nimmst du das koerperlich wahr? Was erzaehlt dir dein Koerper?'\n- METAPHERARBEIT: Greife Bilder und Metaphern des Klienten auf und arbeite damit weiter.\n- REFRAMING: Biete eine neue Rahmung an: 'Koennte es auch sein, dass...?'\n- RESSOURCEN-ANKER: 'Gibt es einen Moment, in dem du dich besonders stark/ruhig/klar gefuehlt hast? Beschreib ihn mir moeglichst lebendig.'\n- WALT-DISNEY-STRATEGIE: 'Lass uns drei Perspektiven einnehmen: der Traeumer, der Realist, der Kritiker. Was sagt jeder dazu?'\n- BEST POSSIBLE SELF: 'Beschreib mir dein bestmoegliches Selbst in diesem Lebensbereich. Ganz konkret.'\n\n## WIE DU INTERVENTIONEN ANBIETEST:\n- Spuere den richtigen Moment: Wenn der Klient in einem Muster feststeckt, eine Ressource beruehrt, oder offen fuer Neues wirkt.\n- Benenne kurz, was du vorschlaegest: 'Ich haette eine Idee - wir koennten mal schauen, wie dein Zukunfts-Ich das sieht. Magst du das ausprobieren?'\n- Bei Ablehnung: sofort akzeptieren, wertschaetzen, weitermachen.\n- Max 1 Intervention pro Antwort anbieten.\n- Nutze die Sprache und Bilder des Klienten.\n\n## REGELN:\n- EINE Frage pro Antwort\n- Warm, wertschaetzend\n- Keine direkten Ratschlaege\n- Max 3-5 Saetze + 1 Frage oder Einladung\n- Und statt Aber\n- Konjunktiv bei Interventionen\n- Kein Markdown\n- Phase 1 zuerst\n- Interventionen durchgehend anbieten, wenn passend";
 
 var SKETCH_SYS = 'Analysiere Coaching-Gespraech. NUR JSON ohne Backticks: {"title":"3-5 Worte","centerTopic":"Kernthema","branches":[{"label":"2-4 Worte","type":"problem|resource|insight|goal|step","items":["Punkt"]}],"metaphor":"kurz","phase":"aktuell"} Max 5 Branches, 3 Items. Deutsch, KURZ.';
 var SUMMARY_SYS = "Fasse Coaching-Gespraech in 3-5 Saetzen zusammen. Deutsch. Kein Markdown.";
+var IMAGE_PROMPT_SYS = "Analysiere dieses Coaching-Gespraech und erstelle einen ENGLISCHEN Bildprompt (max 150 Woerter). Das Bild soll im warmen, handgezeichneten Sketchnote/Bikablo-Stil sein. Es zeigt eine Gegenuberstellung: LINKS die PROBLEMTRANCE des Klienten (was blockiert, einengt, im Kreis dreht - dunklere Toene, enger Raum, Schatten, Spiralen) und RECHTS die LOESUNGSTRANCE (Ziele, Ressourcen, Moeglichkeiten - helle Farben, weiter Raum, Licht, offene Wege). Nutze konkrete Metaphern und Bilder aus dem Gespraech. In der Mitte steht eine Strichfigur am Scheideweg. Stil: handgezeichnet, warm, ermutigend, Bikablo-Marker-Look mit dicken Linien. Antworte NUR mit dem englischen Prompt, KEIN anderer Text.";
 
 var P = {bg:"#f7f3ec",warm:"#c9784d",warmLt:"#f0ddd0",warmDk:"#8a5233",txt:"#3d3229",txtLt:"#8b7d6b",acc:"#6b8f71",accLt:"#dce8dd",brd:"#e8dcc8",danger:"#c0392b",dangerLt:"#fde8e8"};
 var BCOL = {problem:"#e74c3c",resource:"#27ae60",insight:"#f39c12",goal:"#3498db",step:"#e67e22"};
 var BOX = {width:"100%",maxWidth:"100%",overflow:"hidden",boxSizing:"border-box"};
 
+// ═══ localStorage ═══
 function sLoad() { try{var d=localStorage.getItem("hc-cases");return d?JSON.parse(d):[];}catch(e){return[];} }
 function sSave(c) { try{localStorage.setItem("hc-cases",JSON.stringify(c));}catch(e){} }
 
+// ═══ IndexedDB fuer KI-Bilder ═══
+var IDB_NAME = "hc-images";
+var IDB_VER = 1;
+var IDB_STORE = "blobs";
+var HAS_IDB = typeof indexedDB !== "undefined";
+
+function idbOpen(cb) {
+  if (!HAS_IDB) { cb(new Error("IndexedDB nicht verfuegbar")); return; }
+  var req = indexedDB.open(IDB_NAME, IDB_VER);
+  req.onupgradeneeded = function(ev) { ev.target.result.createObjectStore(IDB_STORE); };
+  req.onsuccess = function(ev) { cb(null, ev.target.result); };
+  req.onerror = function(ev) { cb(ev.target.error || new Error("IDB Fehler")); };
+}
+
+function idbSave(key, data, cb) {
+  idbOpen(function(err, db) {
+    if (err) { if (cb) cb(err); return; }
+    try {
+      var tx = db.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).put(data, key);
+      tx.oncomplete = function() { if (cb) cb(null); };
+      tx.onerror = function(ev) { if (cb) cb(ev.target.error); };
+    } catch(e) { if (cb) cb(e); }
+  });
+}
+
+function idbLoad(key, cb) {
+  idbOpen(function(err, db) {
+    if (err) { cb(err); return; }
+    try {
+      var tx = db.transaction(IDB_STORE, "readonly");
+      var req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = function(ev) { cb(null, ev.target.result); };
+      req.onerror = function(ev) { cb(ev.target.error); };
+    } catch(e) { cb(e); }
+  });
+}
+
+function idbDelete(key, cb) {
+  idbOpen(function(err, db) {
+    if (err) { if (cb) cb(err); return; }
+    try {
+      var tx = db.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).delete(key);
+      tx.oncomplete = function() { if (cb) cb(null); };
+      tx.onerror = function(ev) { if (cb) cb(ev.target.error); };
+    } catch(e) { if (cb) cb(e); }
+  });
+}
+
+function idbLoadMany(keys, cb) {
+  var result = {};
+  if (!keys || keys.length === 0) { cb(null, result); return; }
+  var remaining = keys.length;
+  for (var i = 0; i < keys.length; i++) {
+    (function(k) {
+      idbLoad(k, function(err, data) {
+        if (!err && data) result[k] = data;
+        remaining--;
+        if (remaining <= 0) cb(null, result);
+      });
+    })(keys[i]);
+  }
+}
+
+// ═══ API ═══
 function apiCall(sys, msgs, onOk, onErr) {
   if (WORKER_URL.indexOf("DEIN-NAME") !== -1) { onErr("Bitte Worker-URL in index.html eintragen!"); return; }
   fetch(WORKER_URL, {
@@ -59,6 +127,7 @@ function apiCall(sys, msgs, onOk, onErr) {
   }).catch(function(e){ onErr(e.message || "Verbindungsfehler"); });
 }
 
+// ═══ Bikablo SketchView ═══
 function SketchView(props) {
   var d = props.data; if(!d) return null;
   try {
@@ -103,6 +172,7 @@ function SketchView(props) {
   }catch(e){return h("div",{style:{padding:16,color:P.danger,fontSize:12}},"Fehler: "+e.message);}
 }
 
+// ═══ App ═══
 function App() {
   var _c=useState(sLoad()),cases=_c[0],setCases=_c[1];
   var _ac=useState(null),aC=_ac[0],setAC=_ac[1];
@@ -127,6 +197,12 @@ function App() {
   var _lis=useState(false),isListening=_lis[0],setIsListening=_lis[1];
   var speechRef=useRef(null);
   var baseTextRef=useRef("");
+
+  // ═══ KI-Bild States ═══
+  var _skt=useState("bikablo"),skType=_skt[0],setSkType=_skt[1];
+  var _kib=useState(null),kiBild=_kib[0],setKiBild=_kib[1];
+  var _kbl=useState(false),kiBildLd=_kbl[0],setKiBildLd=_kbl[1];
+
   var mob=typeof window!=="undefined"&&window.innerWidth<700;
   var hasSpeech=typeof window!=="undefined"&&(window.SpeechRecognition||window.webkitSpeechRecognition);
 
@@ -144,14 +220,33 @@ function App() {
   }
   var curSk=(aC!==null&&cases[aC])?(cases[aC].sketches||[]):[];
   var dispSk=skI>=0&&curSk[skI]?curSk[skI]:(curSk.length>0?curSk[curSk.length-1]:null);
+  var curKiBilder=(aC!==null&&cases[aC])?(cases[aC].kiBilder||[]):[];
   var reversedM=displayM.slice().reverse();
 
   useEffect(function(){if(endRef.current)endRef.current.scrollIntoView({behavior:"smooth"});},[curM.length,wait]);
 
-  var newCase=function(){var nc={id:String(Date.now()),title:"Neues Thema",createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),sessions:[],sketches:[],summary:""};var u=cases.concat([nc]);save(u);return u.length-1;};
+  // ═══ KI-Bild laden wenn Case wechselt ═══
+  useEffect(function(){
+    if(aC!==null&&cases[aC]&&cases[aC].kiBilder&&cases[aC].kiBilder.length>0){
+      var latest=cases[aC].kiBilder[cases[aC].kiBilder.length-1];
+      idbLoad(latest.id,function(loadErr,dataUrl){
+        if(!loadErr&&dataUrl){setKiBild(dataUrl);}
+        else{setKiBild(null);}
+      });
+    }else{setKiBild(null);}
+  },[aC]);
+
+  var newCase=function(){var nc={id:String(Date.now()),title:"Neues Thema",createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),sessions:[],sketches:[],kiBilder:[],summary:""};var u=cases.concat([nc]);save(u);return u.length-1;};
   var newSess=function(ci){var u=cases.slice();u[ci].sessions.push({id:String(Date.now()),startedAt:new Date().toISOString(),messages:[]});u[ci].updatedAt=new Date().toISOString();save(u);setAC(ci);setAS(u[ci].sessions.length-1);setView("chat");setSbOpen(false);setShowSk(false);setSkI(-1);};
   var resSess=function(ci,si){var fresh=sLoad();setCases(fresh);setAC(ci);setAS(si);setView("chat");setSbOpen(false);setShowSk(false);};
-  var delCase=function(ci){save(cases.filter(function(_,i){return i!==ci;}));if(aC===ci){setAC(null);setAS(null);setView("home");}setCfmDel(null);};
+  var delCase=function(ci){
+    // IDB cleanup
+    var c=cases[ci];
+    if(c&&c.kiBilder){for(var i=0;i<c.kiBilder.length;i++){idbDelete(c.kiBilder[i].id,function(){});}}
+    save(cases.filter(function(_,i){return i!==ci;}));
+    if(aC===ci){setAC(null);setAS(null);setView("home");setKiBild(null);}
+    setCfmDel(null);
+  };
 
   var send=function(text){
     if(!text||!text.trim()||wait||aC===null||aS===null)return;
@@ -167,6 +262,7 @@ function App() {
       setWait(false);
     },function(e){setErr(e);setWait(false);});
   };
+
   var toggleSpeech=function(){
     var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
     if(!SR){setErr("Spracheingabe wird von diesem Browser nicht unterstuetzt");return;}
@@ -175,33 +271,115 @@ function App() {
       setIsListening(false);return;
     }
     var rec=new SR();
-    rec.lang="de-DE";
-    rec.continuous=true;
-    rec.interimResults=true;
-    baseTextRef.current=inp;
-    speechRef.current=rec;
+    rec.lang="de-DE";rec.continuous=true;rec.interimResults=true;
+    baseTextRef.current=inp;speechRef.current=rec;
     rec.onresult=function(event){
       var transcript="";
       for(var i=0;i<event.results.length;i++){transcript+=event.results[i][0].transcript;}
       var base=baseTextRef.current;
       if(base&&base.trim()){setInp(base+" "+transcript);}else{setInp(transcript);}
     };
-    rec.onerror=function(event){
-      if(event.error!=="aborted"){setErr("Mikrofon: "+event.error);}
-      setIsListening(false);
-    };
+    rec.onerror=function(event){if(event.error!=="aborted"){setErr("Mikrofon: "+event.error);}setIsListening(false);};
     rec.onend=function(){setIsListening(false);};
     try{rec.start();setIsListening(true);}catch(e){setErr("Mikrofon: "+e.message);setIsListening(false);}
   };
-  var genSum=function(ci){if(!cases[ci])return;var all=[];var ss=cases[ci].sessions;for(var i=0;i<ss.length;i++)for(var j=0;j<ss[i].messages.length;j++)all.push(ss[i].messages[j]);if(all.length<4)return;var t="";for(var k=0;k<all.length;k++)t+=(all[k].role==="user"?"Klient":"Coach")+": "+all[k].content+"\n";apiCall(SUMMARY_SYS,[{role:"user",content:t.slice(-4000)}],function(s){setCases(function(prev){var u=prev.slice();u[ci].summary=s;sSave(u);return u;});},function(e){});};
-  var genSketch=function(){if(aC===null)return;var all=[];var ss=cases[aC].sessions;for(var i=0;i<ss.length;i++)for(var j=0;j<ss[i].messages.length;j++)all.push(ss[i].messages[j]);if(all.length<2){setErr("Erst ein Gespraech fuehren.");return;}setSkLd(true);setShowSk(true);var t="";var start=Math.max(0,all.length-40);for(var k=start;k<all.length;k++)t+=(all[k].role==="user"?"Klient":"Coach")+": "+all[k].content+"\n";apiCall(SKETCH_SYS,[{role:"user",content:t}],function(raw){try{var cleaned=raw.replace(/```json/g,"").replace(/```/g,"").trim();var parsed=JSON.parse(cleaned);parsed.createdAt=new Date().toISOString();setCases(function(prev){var u=prev.slice();u[aC].sketches.push(parsed);sSave(u);return u;});setSkI(curSk.length);}catch(e){setErr("Skizze: "+e.message);}setSkLd(false);},function(e){setErr("Skizze: "+e);setSkLd(false);});};
 
-  var buildDoc=function(ci){var c=cases[ci!==undefined?ci:aC];if(!c)return"";
+  var genSum=function(ci){if(!cases[ci])return;var all=[];var ss=cases[ci].sessions;for(var i=0;i<ss.length;i++)for(var j=0;j<ss[i].messages.length;j++)all.push(ss[i].messages[j]);if(all.length<4)return;var t="";for(var k=0;k<all.length;k++)t+=(all[k].role==="user"?"Klient":"Coach")+": "+all[k].content+"\n";apiCall(SUMMARY_SYS,[{role:"user",content:t.slice(-4000)}],function(s){setCases(function(prev){var u=prev.slice();u[ci].summary=s;sSave(u);return u;});},function(e){});};
+
+  // ═══ Bikablo-Skizze generieren ═══
+  var genSketch=function(){if(aC===null)return;var all=[];var ss=cases[aC].sessions;for(var i=0;i<ss.length;i++)for(var j=0;j<ss[i].messages.length;j++)all.push(ss[i].messages[j]);if(all.length<2){setErr("Erst ein Gespraech fuehren.");return;}setSkLd(true);setShowSk(true);setSkType("bikablo");var t="";var start=Math.max(0,all.length-40);for(var k=start;k<all.length;k++)t+=(all[k].role==="user"?"Klient":"Coach")+": "+all[k].content+"\n";apiCall(SKETCH_SYS,[{role:"user",content:t}],function(raw){try{var cleaned=raw.replace(/```json/g,"").replace(/```/g,"").trim();var parsed=JSON.parse(cleaned);parsed.createdAt=new Date().toISOString();setCases(function(prev){var u=prev.slice();u[aC].sketches.push(parsed);sSave(u);return u;});setSkI(curSk.length);}catch(e){setErr("Skizze: "+e.message);}setSkLd(false);},function(e){setErr("Skizze: "+e);setSkLd(false);});};
+
+  // ═══ KI-Bild generieren (2-Schritt) ═══
+  var genKiBild=function(){
+    if(aC===null)return;
+    var all=[];var ss=cases[aC].sessions;
+    for(var i=0;i<ss.length;i++)for(var j=0;j<ss[i].messages.length;j++)all.push(ss[i].messages[j]);
+    if(all.length<2){setErr("Erst ein Gespraech fuehren.");return;}
+    setKiBildLd(true);setShowSk(true);setSkType("ki-bild");setErr(null);
+
+    // Schritt 1: Claude generiert Bild-Prompt
+    var t="";var start=Math.max(0,all.length-40);
+    for(var k=start;k<all.length;k++)t+=(all[k].role==="user"?"Klient":"Coach")+": "+all[k].content+"\n";
+
+    apiCall(IMAGE_PROMPT_SYS,[{role:"user",content:t}],function(imgPrompt){
+      // Schritt 2: Bild generieren
+      fetch(IMAGE_WORKER_URL,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({prompt:imgPrompt})
+      }).then(function(res){
+        if(!res.ok){throw new Error("Bildgenerierung fehlgeschlagen ("+res.status+")");}
+        return res.blob();
+      }).then(function(blob){
+        // Blob zu DataURL konvertieren
+        var reader=new FileReader();
+        reader.onload=function(ev){
+          var dataUrl=ev.target.result;
+          setKiBild(dataUrl);
+
+          // In IndexedDB speichern
+          var entry={id:"kb_"+Date.now(),prompt:imgPrompt,createdAt:new Date().toISOString()};
+          idbSave(entry.id,dataUrl,function(saveErr){
+            if(saveErr){console.log("IDB save error:",saveErr);}
+          });
+
+          // Case-Referenz updaten
+          setCases(function(prev){
+            var u=prev.slice();
+            if(!u[aC].kiBilder)u[aC].kiBilder=[];
+            u[aC].kiBilder.push(entry);
+            u[aC].updatedAt=new Date().toISOString();
+            sSave(u);
+            return u;
+          });
+          setKiBildLd(false);
+        };
+        reader.onerror=function(){setErr("Bild konnte nicht gelesen werden");setKiBildLd(false);};
+        reader.readAsDataURL(blob);
+      }).catch(function(e){setErr("KI-Bild: "+e.message);setKiBildLd(false);});
+    },function(e){setErr("Prompt: "+e);setKiBildLd(false);});
+  };
+
+  // ═══ KI-Bild als PNG herunterladen ═══
+  var dlKiBild=function(){
+    if(!kiBild)return;
+    try{
+      var parts=kiBild.split(",");
+      var mimeMatch=parts[0].match(/:(.*?);/);
+      var mime=mimeMatch?mimeMatch[1]:"image/png";
+      var bstr=atob(parts[1]);
+      var n=bstr.length;var u8=new Uint8Array(n);
+      for(var i=0;i<n;i++)u8[i]=bstr.charCodeAt(i);
+      var blob=new Blob([u8],{type:mime});
+      var url=URL.createObjectURL(blob);
+      var a=document.createElement("a");
+      a.href=url;a.download=(cases[aC]?cases[aC].title:"ki-bild")+".png";
+      document.body.appendChild(a);a.click();document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }catch(e){setErr("Download fehlgeschlagen");}
+  };
+
+  // ═══ Export: Word/HTML mit KI-Bild ═══
+  var buildDoc=function(ci,kiBildData){
+    var c=cases[ci!==undefined?ci:aC];if(!c)return"";
     var bcols={problem:"#e74c3c",resource:"#27ae60",insight:"#f39c12",goal:"#3498db",step:"#e67e22"};
     var doc='<html><head><meta charset="utf-8"><style>body{font-family:Calibri,sans-serif;color:#333;max-width:700px;margin:0 auto;padding:40px;line-height:1.7}h1{color:#8a5233;border-bottom:2px solid #c9784d}h2{color:#8a5233;margin-top:24px}h3{color:#6b8f71;margin-top:16px}.co{padding:8px 12px;background:#f0f7f0;border-left:3px solid #6b8f71;margin:8px 0}.cl{padding:8px 12px;background:#fdf6ee;border-left:3px solid #c9784d;margin:8px 0}.lb{font-weight:bold;font-size:9pt;text-transform:uppercase}.sk{margin:16px 0;padding:14px;background:#fdf6e3;border:1px solid #e8dcc8;border-radius:6px;page-break-inside:avoid}.br{margin:6px 0 6px 12px}.br-l{font-weight:bold;margin:3px 0}.br-i{margin:2px 0 2px 18px;font-size:10pt;color:#555}.page-break{page-break-before:always}</style></head><body>';
     doc+='<h1>'+c.title+'</h1>';if(c.summary)doc+='<p style="font-style:italic;color:#666">'+c.summary+'</p>';
     for(var si=0;si<c.sessions.length;si++){var s=c.sessions[si];doc+='<h2>Sitzung '+(si+1)+'</h2>';
       for(var mi=0;mi<s.messages.length;mi++){var m=s.messages[mi];doc+='<div class="'+(m.role==="assistant"?"co":"cl")+'"><div class="lb">'+(m.role==="assistant"?"Coach":"Klient")+'</div>'+m.content.replace(/\n/g,"<br>")+'</div>';}}
+    // KI-Bilder einbetten
+    if(kiBildData&&c.kiBilder&&c.kiBilder.length>0){
+      doc+='<div class="page-break"></div><h2>KI-Bilder ('+c.kiBilder.length+')</h2>';
+      for(var ki=0;ki<c.kiBilder.length;ki++){
+        var kb=c.kiBilder[ki];var imgSrc=kiBildData[kb.id];
+        doc+='<div class="sk"><h3>Problemtrance vs. Loesungstrance</h3>';
+        if(kb.createdAt)doc+='<p style="font-size:9pt;color:#8b7d6b">'+new Date(kb.createdAt).toLocaleDateString("de-DE",{day:"numeric",month:"long",year:"numeric"})+'</p>';
+        if(imgSrc)doc+='<div style="text-align:center;margin:10px 0"><img src="'+imgSrc+'" style="max-width:100%;border-radius:6px" /></div>';
+        if(kb.prompt)doc+='<p style="font-size:9pt;color:#8b7d6b;font-style:italic">Prompt: '+kb.prompt.slice(0,200)+'...</p>';
+        doc+='</div>';
+      }
+    }
+    // Bikablo-Skizzen
     if(c.sketches&&c.sketches.length>0){
       doc+='<div class="page-break"></div><h2>Skizzen ('+c.sketches.length+')</h2>';
       for(var ski=0;ski<c.sketches.length;ski++){var sk=c.sketches[ski];
@@ -231,14 +409,136 @@ function App() {
           if(b.items)for(var bm2=0;bm2<b.items.length;bm2++)doc+='<div class="br-i">- '+b.items[bm2]+'</div>';doc+='</div>';}}
         if(sk.metaphor)doc+='<p style="font-style:italic;color:#8b7d6b">'+sk.metaphor+'</p>';
         doc+='</div>';}}
-    doc+='</body></html>';return doc;};
+    doc+='</body></html>';return doc;
+  };
+
+  // ═══ Export mit Bildern (async) ═══
+  var exportDoc=function(ci,type){
+    var c=cases[ci!==undefined?ci:aC];if(!c)return;
+    var hasKiBilder=c.kiBilder&&c.kiBilder.length>0;
+    if(!hasKiBilder){
+      var doc=buildDoc(ci,{});
+      if(type==="word")dlFile('\ufeff'+doc,(c.title||"doc")+".doc","application/msword");
+      else dlFile(doc,(c.title||"doc")+".html","text/html");
+      return;
+    }
+    var ids=[];for(var i=0;i<c.kiBilder.length;i++)ids.push(c.kiBilder[i].id);
+    idbLoadMany(ids,function(loadErr,dataMap){
+      var doc=buildDoc(ci,dataMap||{});
+      if(type==="word")dlFile('\ufeff'+doc,(c.title||"doc")+".doc","application/msword");
+      else dlFile(doc,(c.title||"doc")+".html","text/html");
+    });
+  };
+
+  // ═══ JSON-Export mit eingebetteten Bildern ═══
+  var exportCaseJson=function(ci){
+    var c=cases[ci];if(!c)return;
+    if(!c.kiBilder||c.kiBilder.length===0){
+      dlFile(JSON.stringify(c,null,2),(c.title||"fall")+".json","application/json");
+      return;
+    }
+    var ids=[];for(var i=0;i<c.kiBilder.length;i++)ids.push(c.kiBilder[i].id);
+    idbLoadMany(ids,function(loadErr,dataMap){
+      var exp=JSON.parse(JSON.stringify(c));
+      exp.kiBilderData=[];
+      for(var j=0;j<exp.kiBilder.length;j++){
+        var kb=exp.kiBilder[j];
+        exp.kiBilderData.push({id:kb.id,prompt:kb.prompt,createdAt:kb.createdAt,dataUrl:(dataMap&&dataMap[kb.id])||null});
+      }
+      dlFile(JSON.stringify(exp,null,2),(c.title||"fall")+".json","application/json");
+    });
+  };
+
+  // ═══ JSON-Import mit Bildern ═══
+  var importCaseWithImages=function(c){
+    var finishImport=function(){
+      var ids={};for(var i=0;i<cases.length;i++)ids[cases[i].id]=true;
+      if(ids[c.id])c.id=String(Date.now());
+      if(c.kiBilderData)delete c.kiBilderData;
+      save(cases.concat([c]));
+      setImpOk("Fall '"+c.title+"' importiert");
+    };
+
+    if(c.kiBilderData&&c.kiBilderData.length>0){
+      // Bilder in IDB speichern
+      if(!c.kiBilder)c.kiBilder=[];
+      var remaining=c.kiBilderData.length;
+      for(var i=0;i<c.kiBilderData.length;i++){
+        (function(kbd){
+          // Referenz sicherstellen
+          var exists=false;
+          for(var k=0;k<c.kiBilder.length;k++){if(c.kiBilder[k].id===kbd.id){exists=true;break;}}
+          if(!exists)c.kiBilder.push({id:kbd.id,prompt:kbd.prompt,createdAt:kbd.createdAt});
+          if(kbd.dataUrl){
+            idbSave(kbd.id,kbd.dataUrl,function(){
+              remaining--;if(remaining<=0)finishImport();
+            });
+          }else{
+            remaining--;if(remaining<=0)finishImport();
+          }
+        })(c.kiBilderData[i]);
+      }
+    }else{
+      finishImport();
+    }
+  };
+
   var dlFile=function(content,name,type){try{var b=new Blob([content],{type:type});var u=URL.createObjectURL(b);var a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);}catch(e){setErr("Download fehlgeschlagen");}};
   var buildText=function(ci){var c=cases[ci!==undefined?ci:aC];if(!c)return"";var t=c.title+"\n--------\n";if(c.summary)t+="Zusammenfassung: "+c.summary+"\n--------\n";for(var si=0;si<c.sessions.length;si++){var s=c.sessions[si];t+="\n=== Sitzung "+(si+1)+" ===\n";for(var mi=0;mi<s.messages.length;mi++){var m=s.messages[mi];t+="\n"+(m.role==="assistant"?"Coach":"Klient")+":\n"+m.content+"\n";}t+="--------\n";}return t;};
   var doTextExp=function(ci){setExpMod({title:"Protokoll",content:buildText(ci)});setExpCop(false);};
   var copyExp=function(){if(!expMod)return;try{navigator.clipboard.writeText(expMod.content);setExpCop(true);}catch(e){}setTimeout(function(){setExpCop(false);},2500);};
   var goHome=function(){if(aC!==null)genSum(aC);setView("home");setAC(null);setAS(null);setShowSk(false);setSbOpen(false);};
-  var doBackup=function(){dlFile(JSON.stringify(cases,null,2),"coaching-backup.json","application/json");};
-  var doRestore=function(){try{var p=JSON.parse(dataTx.trim());if(!Array.isArray(p))throw new Error("Ungueltig");var ids={};for(var i=0;i<cases.length;i++)ids[cases[i].id]=true;var nw=[];for(var j=0;j<p.length;j++){if(!ids[p[j].id])nw.push(p[j]);}if(nw.length===0){setDataEr("Bereits vorhanden.");return;}save(cases.concat(nw));setDataMod(null);setImpOk(nw.length+" importiert");}catch(e){setDataEr("Fehler: "+e.message);}};
+  var doBackup=function(){
+    // Backup alle Cases mit Bildern
+    var allCases=cases.slice();
+    var allIds=[];
+    for(var i=0;i<allCases.length;i++){
+      if(allCases[i].kiBilder){for(var j=0;j<allCases[i].kiBilder.length;j++)allIds.push(allCases[i].kiBilder[j].id);}
+    }
+    if(allIds.length===0){
+      dlFile(JSON.stringify(allCases,null,2),"coaching-backup.json","application/json");
+      return;
+    }
+    idbLoadMany(allIds,function(loadErr,dataMap){
+      var exp=JSON.parse(JSON.stringify(allCases));
+      for(var ci=0;ci<exp.length;ci++){
+        if(exp[ci].kiBilder&&exp[ci].kiBilder.length>0){
+          exp[ci].kiBilderData=[];
+          for(var ki=0;ki<exp[ci].kiBilder.length;ki++){
+            var kb=exp[ci].kiBilder[ki];
+            exp[ci].kiBilderData.push({id:kb.id,prompt:kb.prompt,createdAt:kb.createdAt,dataUrl:(dataMap&&dataMap[kb.id])||null});
+          }
+        }
+      }
+      dlFile(JSON.stringify(exp,null,2),"coaching-backup.json","application/json");
+    });
+  };
+  var doRestore=function(){
+    try{
+      var p=JSON.parse(dataTx.trim());if(!Array.isArray(p))throw new Error("Ungueltig");
+      var ids={};for(var i=0;i<cases.length;i++)ids[cases[i].id]=true;
+      var nw=[];for(var j=0;j<p.length;j++){if(!ids[p[j].id])nw.push(p[j]);}
+      if(nw.length===0){setDataEr("Bereits vorhanden.");return;}
+      // Bilder aus Import wiederherstellen
+      var remaining=0;var allNew=[];
+      for(var ni=0;ni<nw.length;ni++){
+        var c=nw[ni];
+        if(c.kiBilderData&&c.kiBilderData.length>0){
+          if(!c.kiBilder)c.kiBilder=[];
+          for(var ki=0;ki<c.kiBilderData.length;ki++){
+            var kbd=c.kiBilderData[ki];
+            var exists=false;for(var ek=0;ek<c.kiBilder.length;ek++){if(c.kiBilder[ek].id===kbd.id){exists=true;break;}}
+            if(!exists)c.kiBilder.push({id:kbd.id,prompt:kbd.prompt,createdAt:kbd.createdAt});
+            if(kbd.dataUrl){remaining++;idbSave(kbd.id,kbd.dataUrl,function(){remaining--;if(remaining<=0)finish();});}
+          }
+          delete c.kiBilderData;
+        }
+        allNew.push(c);
+      }
+      function finish(){save(cases.concat(allNew));setDataMod(null);setImpOk(allNew.length+" importiert");}
+      if(remaining===0)finish();
+    }catch(e){setDataEr("Fehler: "+e.message);}
+  };
   var fileImp=function(e){var f=e.target.files&&e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){setDataTx(ev.target.result);setDataEr("");};r.readAsText(f);};
 
   var importSingleCase=function(e){
@@ -248,11 +548,8 @@ function App() {
       try{
         var c=JSON.parse(ev.target.result);
         if(!c.id||!c.title||!Array.isArray(c.sessions))throw new Error("Ungueltige Fall-Datei");
-        var ids={};for(var i=0;i<cases.length;i++)ids[cases[i].id]=true;
-        if(ids[c.id]){c.id=String(Date.now());}
-        save(cases.concat([c]));
-        setImpOk("Fall '"+c.title+"' importiert");
-      }catch(err){setImpOk("Fehler: "+err.message);}
+        importCaseWithImages(c);
+      }catch(parseErr){setImpOk("Fehler: "+parseErr.message);}
     };
     r.readAsText(f);
   };
@@ -275,15 +572,15 @@ function App() {
       cases.length===0&&h("p",{style:{textAlign:"center",color:P.txtLt,fontSize:13,padding:20}},"Starte dein erstes Coaching!"),
       cases.map(function(c,ci){return h("div",{key:c.id,style:Object.assign({},BOX,{background:"white",borderRadius:10,padding:12,marginBottom:10,border:"1px solid "+P.brd})},
         h("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:4}},
-          h("div",{style:{flex:1,minWidth:0}},h("div",{style:{fontSize:14,fontWeight:600,color:P.warmDk,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},c.title),h("div",{style:{fontSize:10,color:P.txtLt}},c.sessions.length+" Sitz.")),
+          h("div",{style:{flex:1,minWidth:0}},h("div",{style:{fontSize:14,fontWeight:600,color:P.warmDk,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},c.title),h("div",{style:{fontSize:10,color:P.txtLt}},c.sessions.length+" Sitz."+(c.kiBilder&&c.kiBilder.length>0?" | "+c.kiBilder.length+" Bild"+(c.kiBilder.length>1?"er":""):""))),
           h("button",{onClick:function(){setCfmDel(ci);},style:{border:"1px solid "+P.brd,borderRadius:5,background:"none",cursor:"pointer",fontSize:11,color:P.danger,padding:"2px 5px"}},"X")),
         c.summary&&h("div",{style:{fontSize:10,color:P.txtLt,fontStyle:"italic",padding:"3px 6px",background:P.bg,borderRadius:4,marginBottom:4}},c.summary),
         h("div",{style:{display:"flex",gap:3,flexWrap:"wrap",marginBottom:4}},c.sessions.map(function(s,si){return h("button",{key:s.id,onClick:function(){resSess(ci,si);},style:{padding:"2px 6px",borderRadius:8,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:9}},"S"+(si+1));})),
         h("div",{style:{display:"flex",gap:3,flexWrap:"wrap"}},
           h("button",{onClick:function(){newSess(ci);},style:{padding:"4px 10px",borderRadius:12,border:"1.5px solid "+P.acc,background:P.accLt,cursor:"pointer",fontSize:10,fontWeight:600,color:P.acc}},"+Sitzung"),
-          h("button",{onClick:function(){dlFile('\ufeff'+buildDoc(ci),(c.title||"doc")+".doc","application/msword");},style:{padding:"4px 8px",borderRadius:12,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:10,color:P.txtLt}},"Word"),
-          h("button",{onClick:function(){dlFile(buildDoc(ci),(c.title||"doc")+".html","text/html");},style:{padding:"4px 8px",borderRadius:12,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:10,color:P.txtLt}},"HTML"),
-          h("button",{onClick:function(){dlFile(JSON.stringify(c,null,2),(c.title||"fall")+".json","application/json");},style:{padding:"4px 8px",borderRadius:12,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:10,color:P.txtLt}},"Sichern")),
+          h("button",{onClick:function(){exportDoc(ci,"word");},style:{padding:"4px 8px",borderRadius:12,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:10,color:P.txtLt}},"Word"),
+          h("button",{onClick:function(){exportDoc(ci,"html");},style:{padding:"4px 8px",borderRadius:12,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:10,color:P.txtLt}},"HTML"),
+          h("button",{onClick:function(){exportCaseJson(ci);},style:{padding:"4px 8px",borderRadius:12,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:10,color:P.txtLt}},"Sichern")),
         cfmDel===ci&&h("div",{style:{marginTop:4,padding:"4px 8px",background:P.dangerLt,borderRadius:4,display:"flex",justifyContent:"space-between",alignItems:"center"}},h("span",{style:{fontSize:10,color:P.danger}},"Loeschen?"),h("div",{style:{display:"flex",gap:3}},h("button",{onClick:function(){delCase(ci);},style:{padding:"2px 6px",borderRadius:4,border:"none",background:P.danger,color:"white",cursor:"pointer",fontSize:9}},"Ja"),h("button",{onClick:function(){setCfmDel(null);},style:{padding:"2px 6px",borderRadius:4,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:9}},"Nein")))
       );})
     ),
@@ -299,7 +596,9 @@ function App() {
         h("button",{onClick:goHome,style:{background:"none",border:"none",cursor:"pointer",fontSize:16,color:P.txtLt}},"<"),
         h("button",{onClick:function(){setSbOpen(!sbOpen);},style:{background:sbOpen?P.warmLt:"none",border:"1px solid "+(sbOpen?P.warm:P.brd),borderRadius:4,cursor:"pointer",fontSize:12,padding:"1px 5px"}},"M"),
         h("div",{style:{minWidth:0,overflow:"hidden"}},h("div",{style:{fontSize:12,fontWeight:600,color:P.warmDk,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},cc.title))),
-      h("div",{style:{display:"flex",gap:2}},h("button",{onClick:genSketch,disabled:skLd,style:{padding:"2px 5px",borderRadius:8,border:"1px solid "+P.warm,background:P.warmLt,cursor:"pointer",fontSize:9,color:P.warmDk}},"Skizze"))),
+      h("div",{style:{display:"flex",gap:2}},
+        h("button",{onClick:genSketch,disabled:skLd,style:{padding:"2px 5px",borderRadius:8,border:"1px solid "+P.warm,background:P.warmLt,cursor:"pointer",fontSize:9,color:P.warmDk}},"Skizze"),
+        h("button",{onClick:genKiBild,disabled:kiBildLd,style:{padding:"2px 5px",borderRadius:8,border:"1px solid #8b6fad",background:"#f0ebf5",cursor:"pointer",fontSize:9,color:"#6b4f8a"}},"KI-Bild"))),
     h("div",{style:Object.assign({},BOX,{padding:"6px 4px",background:"white",borderBottom:"1px solid "+P.brd})},
       h("div",{style:Object.assign({},BOX,{display:"flex",gap:3})},
         h("input",{value:inp,onChange:function(e){setInp(e.target.value);},onKeyDown:function(e){if(e.key==="Enter"){if(isListening&&speechRef.current){try{speechRef.current.stop();}catch(e2){}}send(inp);}},placeholder:isListening?"Sprich jetzt...":"Nachricht...",style:{display:"block",width:"1px",flex:"1 1 auto",minWidth:0,padding:"8px 6px",borderRadius:8,border:"1px solid "+(isListening?"#e74c3c":P.brd),fontSize:16,boxSizing:"border-box"}}),
@@ -319,21 +618,49 @@ function App() {
           curM.length===0&&h("div",{style:{textAlign:"center",padding:"24px 8px",color:P.txtLt}},h("div",{style:{fontSize:32}},"🌿"),h("div",{style:{fontSize:14,color:P.warmDk,margin:"4px 0"}},"Was bewegt dich heute?")),
           reversedM.map(function(m,i){if(m.role==="separator"){return h("div",{key:"sep"+i,style:{textAlign:"center",padding:"4px 0",position:"relative"}},h("div",{style:{borderTop:"1px dashed "+P.brd,margin:"0 20px"}}),h("span",{style:{position:"relative",top:"-9px",background:P.bg,padding:"0 10px",fontSize:10,color:P.txtLt}},m.content));}var isU=m.role==="user";return h("div",{key:i,style:Object.assign({},BOX,{display:"flex",justifyContent:isU?"flex-end":"flex-start",gap:4,flexShrink:0})},!isU&&h("div",{style:{width:22,height:22,borderRadius:"50%",background:P.acc,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"white",flexShrink:0,marginTop:2}},"C"),h("div",{style:{maxWidth:isU?"75%":"90%",padding:"10px 14px",borderRadius:10,background:isU?P.warm:"white",color:isU?"white":P.txt,fontSize:14,lineHeight:1.7,wordBreak:"break-word"}},m.content));}),
           h("div",{ref:endRef}))),
+
+      // ═══ SKETCH-PANEL ═══
       (!mob||showSk)&&h("div",{style:mob?{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:900,background:"white",display:"flex",flexDirection:"column"}:Object.assign({},BOX,{width:"45%",maxWidth:"45%",borderLeft:"1px solid "+P.brd,background:"white",display:"flex",flexDirection:"column",flexShrink:0})},
+        // Tab-Leiste: Bikablo | KI-Bild
+        h("div",{style:Object.assign({},BOX,{display:"flex",borderBottom:"1px solid "+P.brd})},
+          h("button",{onClick:function(){setSkType("bikablo");},style:{flex:1,padding:"6px 0",border:"none",borderBottom:skType==="bikablo"?"2px solid "+P.warm:"2px solid transparent",background:skType==="bikablo"?P.warmLt:"transparent",cursor:"pointer",fontSize:11,fontWeight:skType==="bikablo"?700:400,color:skType==="bikablo"?P.warmDk:P.txtLt}},"\uD83D\uDD8D Bikablo"),
+          h("button",{onClick:function(){setSkType("ki-bild");},style:{flex:1,padding:"6px 0",border:"none",borderBottom:skType==="ki-bild"?"2px solid #8b6fad":"2px solid transparent",background:skType==="ki-bild"?"#f0ebf5":"transparent",cursor:"pointer",fontSize:11,fontWeight:skType==="ki-bild"?700:400,color:skType==="ki-bild"?"#6b4f8a":P.txtLt}},"\uD83C\uDFA8 KI-Bild")),
+        // Panel-Header
         h("div",{style:Object.assign({},BOX,{padding:"6px 8px",borderBottom:"1px solid "+P.brd,display:"flex",justifyContent:"space-between",alignItems:"center"})},
-          h("span",{style:{fontSize:12,fontWeight:600,color:P.warmDk,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},dispSk&&dispSk.title?dispSk.title:"Skizze"),
+          h("span",{style:{fontSize:12,fontWeight:600,color:skType==="ki-bild"?"#6b4f8a":P.warmDk,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},
+            skType==="bikablo"?(dispSk&&dispSk.title?dispSk.title:"Skizze"):(curKiBilder.length>0?"Problemtrance vs. Loesungstrance":"KI-Bild")),
           h("div",{style:{display:"flex",gap:3,flexShrink:0}},
             h("button",{onClick:function(){setExpMenu(!expMenu);},style:{padding:"1px 5px",borderRadius:4,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:9}},"Exp"),
-            h("button",{onClick:genSketch,disabled:skLd,style:{padding:"1px 5px",borderRadius:4,border:"1px solid "+P.warm,background:P.warmLt,cursor:"pointer",fontSize:9,color:P.warmDk}},"Neu"),
+            skType==="bikablo"&&h("button",{onClick:genSketch,disabled:skLd,style:{padding:"1px 5px",borderRadius:4,border:"1px solid "+P.warm,background:P.warmLt,cursor:"pointer",fontSize:9,color:P.warmDk}},"Neu"),
+            skType==="ki-bild"&&h("button",{onClick:genKiBild,disabled:kiBildLd,style:{padding:"1px 5px",borderRadius:4,border:"1px solid #8b6fad",background:"#f0ebf5",cursor:"pointer",fontSize:9,color:"#6b4f8a"}},kiBildLd?"...":"Erstellen"),
             mob&&h("button",{onClick:function(){setShowSk(false);},style:{padding:"1px 5px",borderRadius:4,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:10}},"X"))),
-        expMenu&&h("div",{style:Object.assign({},BOX,{padding:"4px 8px",background:"#f9f9f9",borderBottom:"1px solid "+P.brd,display:"flex",gap:4})},
-          h("button",{onClick:function(){dlFile('\ufeff'+buildDoc(),"coaching.doc","application/msword");setExpMenu(false);},style:{padding:"3px 8px",borderRadius:6,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:10}},"Word"),
-          h("button",{onClick:function(){dlFile(buildDoc(),"coaching.html","text/html");setExpMenu(false);},style:{padding:"3px 8px",borderRadius:6,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:10}},"HTML"),
-          h("button",{onClick:function(){doTextExp();setExpMenu(false);},style:{padding:"3px 8px",borderRadius:6,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:10}},"Text")),
+        // Export-Menu
+        expMenu&&h("div",{style:Object.assign({},BOX,{padding:"4px 8px",background:"#f9f9f9",borderBottom:"1px solid "+P.brd,display:"flex",gap:4,flexWrap:"wrap"})},
+          h("button",{onClick:function(){exportDoc(undefined,"word");setExpMenu(false);},style:{padding:"3px 8px",borderRadius:6,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:10}},"Word"),
+          h("button",{onClick:function(){exportDoc(undefined,"html");setExpMenu(false);},style:{padding:"3px 8px",borderRadius:6,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:10}},"HTML"),
+          h("button",{onClick:function(){doTextExp();setExpMenu(false);},style:{padding:"3px 8px",borderRadius:6,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:10}},"Text"),
+          kiBild&&h("button",{onClick:function(){dlKiBild();setExpMenu(false);},style:{padding:"3px 8px",borderRadius:6,border:"1px solid #8b6fad",background:"#f0ebf5",cursor:"pointer",fontSize:10,color:"#6b4f8a"}},"PNG")),
+        // Content Area
         h("div",{style:Object.assign({},BOX,{flex:1,padding:6,overflow:"auto",display:"flex",alignItems:"center",justifyContent:"center"})},
-          skLd?h("div",{style:{color:P.txtLt,fontSize:13}},"Zeichne..."):dispSk?h(SketchView,{data:dispSk}):h("div",{style:{color:P.txtLt,fontSize:12,textAlign:"center",padding:16}},"Klicke Skizze")),
-        dispSk&&h("div",{style:Object.assign({},BOX,{padding:"4px 8px",borderTop:"1px solid "+P.brd,display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"})},
-          [["Problem","#e74c3c"],["Ressource","#27ae60"],["Erkenntnis","#f39c12"],["Ziel","#3498db"],["Schritt","#e67e22"]].map(function(x){return h("span",{key:x[0],style:{fontSize:8,color:P.txtLt,display:"flex",alignItems:"center",gap:2}},h("span",{style:{width:7,height:7,borderRadius:2,background:x[1],display:"inline-block"}}),x[0]);})))),
+          skType==="bikablo"?(
+            skLd?h("div",{style:{color:P.txtLt,fontSize:13}},"Zeichne..."):
+            dispSk?h(SketchView,{data:dispSk}):
+            h("div",{style:{color:P.txtLt,fontSize:12,textAlign:"center",padding:16}},"Klicke ",h("b",null,"Skizze")," oder ",h("b",null,"Neu"))
+          ):(
+            kiBildLd?h("div",{style:{textAlign:"center",padding:24}},
+              h("div",{className:"ki-shimmer",style:{width:200,height:140,borderRadius:8,margin:"0 auto 12px"}}),
+              h("div",{style:{color:"#6b4f8a",fontSize:12}},"KI-Bild wird generiert..."),
+              h("div",{style:{color:P.txtLt,fontSize:10,marginTop:4}},"Claude analysiert, GPT zeichnet")):
+            kiBild?h("img",{src:kiBild,style:{maxWidth:"100%",maxHeight:"100%",borderRadius:6,objectFit:"contain"}}):
+            h("div",{style:{color:P.txtLt,fontSize:12,textAlign:"center",padding:16}},h("div",{style:{fontSize:28,marginBottom:8}},"\uD83C\uDFA8"),h("div",null,"Klicke ",h("b",null,"KI-Bild")," oder ",h("b",null,"Erstellen")),h("div",{style:{fontSize:10,marginTop:6,color:"#8b7d6b"}},"Visualisiert Problemtrance vs. Loesungstrance"))
+          )),
+        // Legende (nur fuer Bikablo)
+        skType==="bikablo"&&dispSk&&h("div",{style:Object.assign({},BOX,{padding:"4px 8px",borderTop:"1px solid "+P.brd,display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"})},
+          [["Problem","#e74c3c"],["Ressource","#27ae60"],["Erkenntnis","#f39c12"],["Ziel","#3498db"],["Schritt","#e67e22"]].map(function(x){return h("span",{key:x[0],style:{fontSize:8,color:P.txtLt,display:"flex",alignItems:"center",gap:2}},h("span",{style:{width:7,height:7,borderRadius:2,background:x[1],display:"inline-block"}}),x[0]);})),
+        // KI-Bild Info (nur fuer KI-Bild mit Bild)
+        skType==="ki-bild"&&curKiBilder.length>0&&h("div",{style:Object.assign({},BOX,{padding:"4px 8px",borderTop:"1px solid "+P.brd,textAlign:"center"})},
+          h("span",{style:{fontSize:9,color:"#8b7d6b"}},curKiBilder.length+" Bild"+(curKiBilder.length>1?"er":"")+" | "+new Date(curKiBilder[curKiBilder.length-1].createdAt).toLocaleString("de-DE",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}))))),
+    // Export-Modal
     expMod&&h("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:9999,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:8},onClick:function(){setExpMod(null);}},
       h("div",{style:{background:"white",borderRadius:12,width:"100%",maxWidth:600,maxHeight:"85vh",display:"flex",flexDirection:"column",overflow:"hidden"},onClick:function(e){e.stopPropagation();}},
         h("div",{style:{padding:"10px 12px",borderBottom:"1px solid "+P.brd,display:"flex",justifyContent:"space-between",alignItems:"center"}},h("b",{style:{fontSize:13,color:P.warmDk}},expMod.title),h("div",{style:{display:"flex",gap:4}},h("button",{onClick:copyExp,style:{padding:"5px 12px",borderRadius:14,border:"none",background:expCop?P.acc:P.warm,color:"white",cursor:"pointer",fontSize:12}},expCop?"OK":"Kopieren"),h("button",{onClick:function(){setExpMod(null);},style:{padding:"5px 8px",borderRadius:14,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:12}},"X"))),
