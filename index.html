@@ -28,6 +28,7 @@ var useRef = React.useRef;
 var useEffect = React.useEffect;
 
 // ═══════════════════════════════════════
+var APP_VERSION = "2.2";
 var WORKER_URL = "https://hypnocoach.rsab1963.workers.dev";
 var IMAGE_WORKER_URL = "https://sketchnote-image.rsab1963.workers.dev";
 // ═══════════════════════════════════════
@@ -202,6 +203,18 @@ function App() {
   var _skt=useState("bikablo"),skType=_skt[0],setSkType=_skt[1];
   var _kib=useState(null),kiBild=_kib[0],setKiBild=_kib[1];
   var _kbl=useState(false),kiBildLd=_kbl[0],setKiBildLd=_kbl[1];
+  var _kbs=useState(""),kiBildStep=_kbs[0],setKiBildStep=_kbs[1];
+  var _kbt=useState(0),kiBildTime=_kbt[0],setKiBildTime=_kbt[1];
+  var kiBildCancel=useRef(false);
+  var kiBildTimer=useRef(null);
+  var kiBildTimeout=useRef(null);
+
+  var stopKiBild=function(){
+    kiBildCancel.current=true;
+    setKiBildLd(false);setKiBildStep("");setKiBildTime(0);
+    if(kiBildTimer.current){clearInterval(kiBildTimer.current);kiBildTimer.current=null;}
+    if(kiBildTimeout.current){clearTimeout(kiBildTimeout.current);kiBildTimeout.current=null;}
+  };
 
   var mob=typeof window!=="undefined"&&window.innerWidth<700;
   var hasSpeech=typeof window!=="undefined"&&(window.SpeechRecognition||window.webkitSpeechRecognition);
@@ -295,20 +308,40 @@ function App() {
     var all=[];var ss=cases[aC].sessions;
     for(var i=0;i<ss.length;i++)for(var j=0;j<ss[i].messages.length;j++)all.push(ss[i].messages[j]);
     if(all.length<2){setErr("Erst ein Gespraech fuehren.");return;}
-    setKiBildLd(true);setShowSk(true);setSkType("ki-bild");setErr(null);
 
-    // Schritt 1: Claude extrahiert Szenen als JSON
+    // Reset und Start
+    kiBildCancel.current=false;
+    if(kiBildTimer.current)clearInterval(kiBildTimer.current);
+    if(kiBildTimeout.current)clearTimeout(kiBildTimeout.current);
+    setKiBildLd(true);setShowSk(true);setSkType("ki-bild");setErr(null);setKiBildTime(0);setKiBildStep("analyse");
+
+    // Sekundenzaehler
+    var startTime=Date.now();
+    kiBildTimer.current=setInterval(function(){setKiBildTime(Math.floor((Date.now()-startTime)/1000));},1000);
+
+    // 90s Timeout
+    kiBildTimeout.current=setTimeout(function(){
+      if(kiBildCancel.current)return;
+      stopKiBild();
+      setErr("KI-Bild: Zeitlimit (90s) ueberschritten. Bitte erneut versuchen.");
+    },90000);
+
     var t="";var start=Math.max(0,all.length-40);
     for(var k=start;k<all.length;k++)t+=(all[k].role==="user"?"Klient":"Coach")+": "+all[k].content+"\n";
 
+    // Schritt 1: Claude extrahiert Szenen als JSON
     apiCall(EXTRACT_SYS,[{role:"user",content:t}],function(raw){
+      if(kiBildCancel.current)return;
       try{
         var cleaned=raw.replace(/```json/g,"").replace(/```/g,"").trim();
         var data=JSON.parse(cleaned);
         if(!data.problem_scene||!data.goal_scene){throw new Error("Keine Szenen extrahiert");}
+        console.log("[KI-Bild] Extrahiert:",JSON.stringify(data));
+        setKiBildStep("generate");
 
         // Schritt 2: Festes Template + extrahierte Szenen = Bildprompt
         var imgPrompt="A split illustration divided vertically in the middle. LEFT SIDE with darker muted tones, cramped composition, slight shadows: "+data.problem_scene+". RIGHT SIDE with bright warm colors, open space, light: "+data.goal_scene+". In the exact CENTER between both halves: a simple stick figure standing at a crossroads looking towards the bright side"+(data.key_symbol?", with "+data.key_symbol+" nearby":"")+". Style: warm hand-drawn marker illustration with thick black outlines on cream background, simple expressive stick figures with round heads, soft muted red and teal accents. No text, no labels, no words, no letters anywhere in the image.";
+        console.log("[KI-Bild] Prompt an GPT:",imgPrompt);
 
         // Schritt 3: Bild generieren
         fetch(IMAGE_WORKER_URL,{
@@ -316,11 +349,14 @@ function App() {
           headers:{"Content-Type":"application/json"},
           body:JSON.stringify({prompt:imgPrompt})
         }).then(function(res){
+          if(kiBildCancel.current)return;
           if(!res.ok){throw new Error("Bildgenerierung fehlgeschlagen ("+res.status+")");}
           return res.blob();
         }).then(function(blob){
+          if(kiBildCancel.current||!blob)return;
           var reader=new FileReader();
           reader.onload=function(ev){
+            if(kiBildCancel.current)return;
             var dataUrl=ev.target.result;
             setKiBild(dataUrl);
             var entry={id:"kb_"+Date.now(),prompt:imgPrompt,createdAt:new Date().toISOString()};
@@ -335,13 +371,13 @@ function App() {
               sSave(u);
               return u;
             });
-            setKiBildLd(false);
+            stopKiBild();setKiBildLd(false);
           };
-          reader.onerror=function(){setErr("Bild konnte nicht gelesen werden");setKiBildLd(false);};
+          reader.onerror=function(){if(!kiBildCancel.current)setErr("Bild konnte nicht gelesen werden");stopKiBild();};
           reader.readAsDataURL(blob);
-        }).catch(function(e){setErr("KI-Bild: "+e.message);setKiBildLd(false);});
-      }catch(e){setErr("Extraktion: "+e.message);setKiBildLd(false);}
-    },function(e){setErr("Analyse: "+e);setKiBildLd(false);});
+        }).catch(function(e){if(!kiBildCancel.current)setErr("KI-Bild: "+e.message);stopKiBild();});
+      }catch(e){if(!kiBildCancel.current)setErr("Extraktion: "+e.message);stopKiBild();}
+    },function(e){if(!kiBildCancel.current)setErr("Analyse: "+e);stopKiBild();});
   };
 
   // ═══ KI-Bild als PNG herunterladen ═══
@@ -564,6 +600,7 @@ function App() {
       h("div",{style:{fontSize:48}},"🌿"),
       h("h1",{style:{color:P.warmDk,fontSize:mob?24:30,margin:"8px 0 4px"}},"Hypnosystemischer Coach"),
       h("p",{style:{color:P.txtLt,fontSize:13}},"Aufmerksamkeit - Kompetenzen - Loesungen"),
+      h("p",{style:{color:P.brd,fontSize:9}},"v"+APP_VERSION),
       h("button",{onClick:function(){var i=newCase();newSess(i);},style:{marginTop:16,padding:"12px 26px",borderRadius:22,border:"none",background:P.warm,color:"white",fontSize:15,fontWeight:600,cursor:"pointer"}},"Neues Thema"),
       h("div",{style:{marginTop:10,display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap"}},
         cases.length>0&&h("button",{onClick:doBackup,style:{padding:"4px 10px",borderRadius:12,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:11,color:P.txtLt}},"Backup"),
@@ -653,8 +690,10 @@ function App() {
           ):(
             kiBildLd?h("div",{style:{textAlign:"center",padding:24}},
               h("div",{className:"ki-shimmer",style:{width:200,height:140,borderRadius:8,margin:"0 auto 12px"}}),
-              h("div",{style:{color:"#6b4f8a",fontSize:12}},"KI-Bild wird generiert..."),
-              h("div",{style:{color:P.txtLt,fontSize:10,marginTop:4}},"Claude analysiert, GPT zeichnet")):
+              h("div",{style:{color:"#6b4f8a",fontSize:12,fontWeight:600}},
+                kiBildStep==="analyse"?"Claude analysiert Chat...":"GPT zeichnet Bild..."),
+              h("div",{style:{color:P.txtLt,fontSize:11,marginTop:4}},kiBildTime+"s"),
+              h("button",{onClick:stopKiBild,style:{marginTop:10,padding:"5px 16px",borderRadius:12,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:11,color:P.danger}},"Abbrechen")):
             kiBild?h("img",{src:kiBild,style:{maxWidth:"100%",maxHeight:"100%",borderRadius:6,objectFit:"contain"}}):
             h("div",{style:{color:P.txtLt,fontSize:12,textAlign:"center",padding:16}},h("div",{style:{fontSize:28,marginBottom:8}},"\uD83C\uDFA8"),h("div",null,"Klicke ",h("b",null,"KI-Bild")," oder ",h("b",null,"Erstellen")),h("div",{style:{fontSize:10,marginTop:6,color:"#8b7d6b"}},"Visualisiert Problemtrance vs. Loesungstrance"))
           )),
@@ -662,8 +701,9 @@ function App() {
         skType==="bikablo"&&dispSk&&h("div",{style:Object.assign({},BOX,{padding:"4px 8px",borderTop:"1px solid "+P.brd,display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"})},
           [["Problem","#e74c3c"],["Ressource","#27ae60"],["Erkenntnis","#f39c12"],["Ziel","#3498db"],["Schritt","#e67e22"]].map(function(x){return h("span",{key:x[0],style:{fontSize:8,color:P.txtLt,display:"flex",alignItems:"center",gap:2}},h("span",{style:{width:7,height:7,borderRadius:2,background:x[1],display:"inline-block"}}),x[0]);})),
         // KI-Bild Info (nur fuer KI-Bild mit Bild)
-        skType==="ki-bild"&&curKiBilder.length>0&&h("div",{style:Object.assign({},BOX,{padding:"4px 8px",borderTop:"1px solid "+P.brd,textAlign:"center"})},
-          h("span",{style:{fontSize:9,color:"#8b7d6b"}},curKiBilder.length+" Bild"+(curKiBilder.length>1?"er":"")+" | "+new Date(curKiBilder[curKiBilder.length-1].createdAt).toLocaleString("de-DE",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}))))),
+        skType==="ki-bild"&&curKiBilder.length>0&&h("div",{style:Object.assign({},BOX,{padding:"4px 8px",borderTop:"1px solid "+P.brd,maxHeight:80,overflowY:"auto"})},
+          h("div",{style:{fontSize:9,color:"#8b7d6b",textAlign:"center"}},curKiBilder.length+" Bild"+(curKiBilder.length>1?"er":"")+" | "+new Date(curKiBilder[curKiBilder.length-1].createdAt).toLocaleString("de-DE",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})),
+          curKiBilder[curKiBilder.length-1].prompt&&h("div",{style:{fontSize:8,color:"#aaa",marginTop:3,fontFamily:"monospace",wordBreak:"break-all"}},"Prompt: "+curKiBilder[curKiBilder.length-1].prompt.slice(0,300))))),
     // Export-Modal
     expMod&&h("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:9999,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:8},onClick:function(){setExpMod(null);}},
       h("div",{style:{background:"white",borderRadius:12,width:"100%",maxWidth:600,maxHeight:"85vh",display:"flex",flexDirection:"column",overflow:"hidden"},onClick:function(e){e.stopPropagation();}},
