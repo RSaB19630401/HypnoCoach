@@ -36,7 +36,7 @@ var COACH_SYS = "Du bist ein erfahrener integrativer Coach mit hypnosystemischer
 
 var SKETCH_SYS = 'Analysiere Coaching-Gespraech. NUR JSON ohne Backticks: {"title":"3-5 Worte","centerTopic":"Kernthema","branches":[{"label":"2-4 Worte","type":"problem|resource|insight|goal|step","items":["Punkt"]}],"metaphor":"kurz","phase":"aktuell"} Max 5 Branches, 3 Items. Deutsch, KURZ.';
 var SUMMARY_SYS = "Fasse Coaching-Gespraech in 3-5 Saetzen zusammen. Deutsch. Kein Markdown.";
-var IMAGE_PROMPT_SYS = "Analysiere dieses Coaching-Gespraech und erstelle einen ENGLISCHEN Bildprompt (max 150 Woerter). Das Bild soll im warmen, handgezeichneten Sketchnote/Bikablo-Stil sein. Es zeigt eine Gegenuberstellung: LINKS die PROBLEMTRANCE des Klienten (was blockiert, einengt, im Kreis dreht - dunklere Toene, enger Raum, Schatten, Spiralen) und RECHTS die LOESUNGSTRANCE (Ziele, Ressourcen, Moeglichkeiten - helle Farben, weiter Raum, Licht, offene Wege). Nutze konkrete Metaphern und Bilder aus dem Gespraech. In der Mitte steht eine Strichfigur am Scheideweg. Stil: handgezeichnet, warm, ermutigend, Bikablo-Marker-Look mit dicken Linien. Antworte NUR mit dem englischen Prompt, KEIN anderer Text.";
+var IMAGE_PROMPT_SYS = "Du erstellst einen ENGLISCHEN Bildprompt aus einem Coaching-Gespraech. WICHTIG: Der Prompt MUSS die konkreten Themen des Klienten enthalten!\n\nSCHRITT 1 - Extrahiere aus dem Gespraech:\n- Was ist das KONKRETE Problem des Klienten? (z.B. Stress im Job, Konflikt mit Chef, Angst vor Veraenderung)\n- Welche KONKRETEN Metaphern oder Bilder hat der Klient benutzt? (z.B. 'ich fuehle mich eingesperrt', 'wie ein Hamsterrad')\n- Was sind die KONKRETEN Ziele/Wuensche? (z.B. mehr Gelassenheit, Jobwechsel, bessere Kommunikation)\n- Welche Ressourcen wurden genannt? (z.B. Familie, frueherer Erfolg, Kreativitaet)\n\nSCHRITT 2 - Baue daraus einen Bildprompt (max 150 Woerter, Englisch):\n- LINKS: Problemtrance - visualisiere das KONKRETE Problem mit passenden Symbolen (dunklere Toene, Enge, Schatten)\n- RECHTS: Loesungstrance - visualisiere die KONKRETEN Ziele/Ressourcen (helle Farben, Weite, Licht)\n- MITTE: Eine Strichfigur am Scheideweg zwischen beiden Welten\n- Stil: Warm, handgezeichnet, Bikablo/Sketchnote-Look mit dicken Marker-Linien\n- KEINE generischen Coaching-Bilder! Jedes Bild muss einzigartig zum Gespraech passen.\n\nAntworte NUR mit dem englischen Bildprompt. KEIN anderer Text, KEINE Erklaerung.";
 
 var P = {bg:"#f7f3ec",warm:"#c9784d",warmLt:"#f0ddd0",warmDk:"#8a5233",txt:"#3d3229",txtLt:"#8b7d6b",acc:"#6b8f71",accLt:"#dce8dd",brd:"#e8dcc8",danger:"#c0392b",dangerLt:"#fde8e8"};
 var BCOL = {problem:"#e74c3c",resource:"#27ae60",insight:"#f39c12",goal:"#3498db",step:"#e67e22"};
@@ -117,7 +117,7 @@ function apiCall(sys, msgs, onOk, onErr) {
   fetch(WORKER_URL, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:sys,messages:msgs})
+    body: JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:sys,messages:msgs})
   }).then(function(res){ return res.json(); })
   .then(function(data){
     if (data.error) { onErr(data.error.message || data.error); return; }
@@ -623,7 +623,7 @@ function App() {
       (!mob||showSk)&&h("div",{style:mob?{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:900,background:"white",display:"flex",flexDirection:"column"}:Object.assign({},BOX,{width:"45%",maxWidth:"45%",borderLeft:"1px solid "+P.brd,background:"white",display:"flex",flexDirection:"column",flexShrink:0})},
         // Tab-Leiste: Bikablo | KI-Bild
         h("div",{style:Object.assign({},BOX,{display:"flex",borderBottom:"1px solid "+P.brd})},
-          h("button",{onClick:function(){setSkType("bikablo");},style:{flex:1,padding:"6px 0",border:"none",borderBottom:skType==="bikablo"?"2px solid "+P.warm:"2px solid transparent",background:skType==="bikablo"?P.warmLt:"transparent",cursor:"pointer",fontSize:11,fontWeight:skType==="bikablo"?700:400,color:skType==="bikablo"?P.warmDk:P.txtLt}},"\uD83D\uDD8D Bikablo"),
+          h("button",{onClick:function(){setSkType("bikablo");},style:{flex:1,padding:"6px 0",border:"none",borderBottom:skType==="bikablo"?"2px solid "+P.warm:"2px solid transparent",background:skType==="bikablo"?P.warmLt:"transparent",cursor:"pointer",fontSize:11,fontWeight:skType==="bikablo"?700:400,color:skType==="bikablo"?P.warmDk:P.txtLt}},"\uD83D\uDD8D Skizze"),
           h("button",{onClick:function(){setSkType("ki-bild");},style:{flex:1,padding:"6px 0",border:"none",borderBottom:skType==="ki-bild"?"2px solid #8b6fad":"2px solid transparent",background:skType==="ki-bild"?"#f0ebf5":"transparent",cursor:"pointer",fontSize:11,fontWeight:skType==="ki-bild"?700:400,color:skType==="ki-bild"?"#6b4f8a":P.txtLt}},"\uD83C\uDFA8 KI-Bild")),
         // Panel-Header
         h("div",{style:Object.assign({},BOX,{padding:"6px 8px",borderBottom:"1px solid "+P.brd,display:"flex",justifyContent:"space-between",alignItems:"center"})},
