@@ -36,7 +36,7 @@ var COACH_SYS = "Du bist ein erfahrener integrativer Coach mit hypnosystemischer
 
 var SKETCH_SYS = 'Analysiere Coaching-Gespraech. NUR JSON ohne Backticks: {"title":"3-5 Worte","centerTopic":"Kernthema","branches":[{"label":"2-4 Worte","type":"problem|resource|insight|goal|step","items":["Punkt"]}],"metaphor":"kurz","phase":"aktuell"} Max 5 Branches, 3 Items. Deutsch, KURZ.';
 var SUMMARY_SYS = "Fasse Coaching-Gespraech in 3-5 Saetzen zusammen. Deutsch. Kein Markdown.";
-var IMAGE_PROMPT_SYS = "Du analysierst ein Coaching-Gespraech und erstellst daraus einen ENGLISCHEN Bildprompt.\n\nWICHTIG: Das Bild muss das KONKRETE Thema des Klienten zeigen - NICHT ein allgemeines Coaching-Bild!\n\nSCHRITT 1 - Lies das Gespraech und beantworte:\n- Was genau ist das Problem? (z.B. 'Angst beim Erstkontakt mit Fremden')\n- Welche Bilder/Metaphern passen dazu?\n- Was ist das Ziel des Klienten?\n\nSCHRITT 2 - Schreibe einen Bildprompt nach diesem Schema:\n'A split illustration. LEFT SIDE (dark, cramped): [KONKRETES Problem als Szene, z.B. a stick figure standing frozen in front of a group of strangers, sweat drops, thought bubbles with question marks]. RIGHT SIDE (bright, open): [KONKRETES Ziel als Szene, z.B. the same stick figure confidently shaking hands, smiling faces, speech bubbles]. CENTER: the same person at a crossroads between both worlds. Style: warm hand-drawn marker illustration with thick lines on white background, simple stick figures, muted red and teal accents.'\n\nREGELN:\n- Der Prompt MUSS konkrete Szenen aus dem Gespraech beschreiben\n- Nenne NIEMALS die Woerter 'sketchnote', 'bikablo', 'infographic' oder 'tutorial'\n- Beschreibe SZENEN mit Figuren und Situationen, keine abstrakten Konzepte\n- Max 150 Woerter\n\nAntworte NUR mit dem englischen Bildprompt.";
+var EXTRACT_SYS = "Extrahiere die Kernthemen aus diesem Coaching-Gespraech. Antworte NUR mit JSON, keine Backticks, kein anderer Text:\n{\"problem_scene\":\"short English scene description showing the client's specific problem, e.g. a person standing frozen and alone at a crowded party while everyone else talks in groups, sweat drops on forehead\",\"goal_scene\":\"short English scene description showing the client's desired state, e.g. the same person smiling and chatting confidently with a group of people, warm handshake\",\"key_symbol\":\"one English symbolic object for the core theme, e.g. a locked door, a bridge, a mountain\"}";
 
 var P = {bg:"#f7f3ec",warm:"#c9784d",warmLt:"#f0ddd0",warmDk:"#8a5233",txt:"#3d3229",txtLt:"#8b7d6b",acc:"#6b8f71",accLt:"#dce8dd",brd:"#e8dcc8",danger:"#c0392b",dangerLt:"#fde8e8"};
 var BCOL = {problem:"#e74c3c",resource:"#27ae60",insight:"#f39c12",goal:"#3498db",step:"#e67e22"};
@@ -297,47 +297,51 @@ function App() {
     if(all.length<2){setErr("Erst ein Gespraech fuehren.");return;}
     setKiBildLd(true);setShowSk(true);setSkType("ki-bild");setErr(null);
 
-    // Schritt 1: Claude generiert Bild-Prompt
+    // Schritt 1: Claude extrahiert Szenen als JSON
     var t="";var start=Math.max(0,all.length-40);
     for(var k=start;k<all.length;k++)t+=(all[k].role==="user"?"Klient":"Coach")+": "+all[k].content+"\n";
 
-    apiCall(IMAGE_PROMPT_SYS,[{role:"user",content:t}],function(imgPrompt){
-      // Schritt 2: Bild generieren
-      fetch(IMAGE_WORKER_URL,{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({prompt:imgPrompt})
-      }).then(function(res){
-        if(!res.ok){throw new Error("Bildgenerierung fehlgeschlagen ("+res.status+")");}
-        return res.blob();
-      }).then(function(blob){
-        // Blob zu DataURL konvertieren
-        var reader=new FileReader();
-        reader.onload=function(ev){
-          var dataUrl=ev.target.result;
-          setKiBild(dataUrl);
+    apiCall(EXTRACT_SYS,[{role:"user",content:t}],function(raw){
+      try{
+        var cleaned=raw.replace(/```json/g,"").replace(/```/g,"").trim();
+        var data=JSON.parse(cleaned);
+        if(!data.problem_scene||!data.goal_scene){throw new Error("Keine Szenen extrahiert");}
 
-          // In IndexedDB speichern
-          var entry={id:"kb_"+Date.now(),prompt:imgPrompt,createdAt:new Date().toISOString()};
-          idbSave(entry.id,dataUrl,function(saveErr){
-            if(saveErr){console.log("IDB save error:",saveErr);}
-          });
+        // Schritt 2: Festes Template + extrahierte Szenen = Bildprompt
+        var imgPrompt="A split illustration divided vertically in the middle. LEFT SIDE with darker muted tones, cramped composition, slight shadows: "+data.problem_scene+". RIGHT SIDE with bright warm colors, open space, light: "+data.goal_scene+". In the exact CENTER between both halves: a simple stick figure standing at a crossroads looking towards the bright side"+(data.key_symbol?", with "+data.key_symbol+" nearby":"")+". Style: warm hand-drawn marker illustration with thick black outlines on cream background, simple expressive stick figures with round heads, soft muted red and teal accents. No text, no labels, no words, no letters anywhere in the image.";
 
-          // Case-Referenz updaten
-          setCases(function(prev){
-            var u=prev.slice();
-            if(!u[aC].kiBilder)u[aC].kiBilder=[];
-            u[aC].kiBilder.push(entry);
-            u[aC].updatedAt=new Date().toISOString();
-            sSave(u);
-            return u;
-          });
-          setKiBildLd(false);
-        };
-        reader.onerror=function(){setErr("Bild konnte nicht gelesen werden");setKiBildLd(false);};
-        reader.readAsDataURL(blob);
-      }).catch(function(e){setErr("KI-Bild: "+e.message);setKiBildLd(false);});
-    },function(e){setErr("Prompt: "+e);setKiBildLd(false);});
+        // Schritt 3: Bild generieren
+        fetch(IMAGE_WORKER_URL,{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({prompt:imgPrompt})
+        }).then(function(res){
+          if(!res.ok){throw new Error("Bildgenerierung fehlgeschlagen ("+res.status+")");}
+          return res.blob();
+        }).then(function(blob){
+          var reader=new FileReader();
+          reader.onload=function(ev){
+            var dataUrl=ev.target.result;
+            setKiBild(dataUrl);
+            var entry={id:"kb_"+Date.now(),prompt:imgPrompt,createdAt:new Date().toISOString()};
+            idbSave(entry.id,dataUrl,function(saveErr){
+              if(saveErr){console.log("IDB save error:",saveErr);}
+            });
+            setCases(function(prev){
+              var u=prev.slice();
+              if(!u[aC].kiBilder)u[aC].kiBilder=[];
+              u[aC].kiBilder.push(entry);
+              u[aC].updatedAt=new Date().toISOString();
+              sSave(u);
+              return u;
+            });
+            setKiBildLd(false);
+          };
+          reader.onerror=function(){setErr("Bild konnte nicht gelesen werden");setKiBildLd(false);};
+          reader.readAsDataURL(blob);
+        }).catch(function(e){setErr("KI-Bild: "+e.message);setKiBildLd(false);});
+      }catch(e){setErr("Extraktion: "+e.message);setKiBildLd(false);}
+    },function(e){setErr("Analyse: "+e);setKiBildLd(false);});
   };
 
   // ═══ KI-Bild als PNG herunterladen ═══
