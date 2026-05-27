@@ -28,7 +28,7 @@ var useRef = React.useRef;
 var useEffect = React.useEffect;
 
 // ═══════════════════════════════════════
-var APP_VERSION = "2.3";
+var APP_VERSION = "2.5";
 var WORKER_URL = "https://hypnocoach.rsab1963.workers.dev";
 var IMAGE_WORKER_URL = "https://hypnocoach.rsab1963.workers.dev/image";
 // ═══════════════════════════════════════
@@ -37,7 +37,7 @@ var COACH_SYS = "Du bist ein erfahrener integrativer Coach mit hypnosystemischer
 
 var SKETCH_SYS = 'Analysiere Coaching-Gespraech. NUR JSON ohne Backticks: {"title":"3-5 Worte","centerTopic":"Kernthema","branches":[{"label":"2-4 Worte","type":"problem|resource|insight|goal|step","items":["Punkt"]}],"metaphor":"kurz","phase":"aktuell"} Max 5 Branches, 3 Items. Deutsch, KURZ.';
 var SUMMARY_SYS = "Fasse Coaching-Gespraech in 3-5 Saetzen zusammen. Deutsch. Kein Markdown.";
-var EXTRACT_SYS = "Extrahiere die Kernthemen aus diesem Coaching-Gespraech. Antworte NUR mit JSON, keine Backticks, kein anderer Text:\n{\"problem_scene\":\"short English scene description showing the client's specific problem, e.g. a person standing frozen and alone at a crowded party while everyone else talks in groups, sweat drops on forehead\",\"goal_scene\":\"short English scene description showing the client's desired state, e.g. the same person smiling and chatting confidently with a group of people, warm handshake\",\"key_symbol\":\"one English symbolic object for the core theme, e.g. a locked door, a bridge, a mountain\"}";
+var EXTRACT_SYS = "Extrahiere die Kernthemen aus diesem Coaching-Gespraech als Sketchnote-Struktur. Antworte NUR mit JSON, keine Backticks:\n{\"title\":\"Deutscher Titel, 3-6 Worte, z.B. Umgang mit Pruefungsangst\",\"subtitle\":\"Deutscher Untertitel, ein kurzer Satz\",\"sections\":[{\"heading\":\"2-4 Worte deutsch\",\"points\":[\"Punkt 1\",\"Punkt 2\",\"Punkt 3\"],\"icon\":\"English icon description, e.g. a person taking deep breaths with closed eyes\"},{\"heading\":\"...\",\"points\":[\"...\"],\"icon\":\"...\"}],\"takeaway\":\"Deutscher Schluss-Satz als Ermutigung\"}\n4-6 Sections. Jede Section ist ein Aspekt aus dem Gespraech: Erkenntnisse, Strategien, Ressourcen, naechste Schritte. Icons beschreiben illustrierte Figuren mit runden Koepfen und Koerper (KEINE Strichmaennchen).";
 
 var P = {bg:"#f7f3ec",warm:"#c9784d",warmLt:"#f0ddd0",warmDk:"#8a5233",txt:"#3d3229",txtLt:"#8b7d6b",acc:"#6b8f71",accLt:"#dce8dd",brd:"#e8dcc8",danger:"#c0392b",dangerLt:"#fde8e8"};
 var BCOL = {problem:"#e74c3c",resource:"#27ae60",insight:"#f39c12",goal:"#3498db",step:"#e67e22"};
@@ -335,12 +335,21 @@ function App() {
       try{
         var cleaned=raw.replace(/```json/g,"").replace(/```/g,"").trim();
         var data=JSON.parse(cleaned);
-        if(!data.problem_scene||!data.goal_scene){throw new Error("Keine Szenen extrahiert");}
+        if(!data.title||!data.sections||data.sections.length<2){throw new Error("Keine Sektionen extrahiert");}
         console.log("[KI-Bild] Extrahiert:",JSON.stringify(data));
         setKiBildStep("generate");
 
-        // Schritt 2: Festes Template + extrahierte Szenen = Bildprompt
-        var imgPrompt="A split illustration divided vertically in the middle. LEFT SIDE with darker muted tones, cramped composition, slight shadows: "+data.problem_scene+". RIGHT SIDE with bright warm colors, open space, light: "+data.goal_scene+". In the exact CENTER between both halves: a simple stick figure standing at a crossroads looking towards the bright side"+(data.key_symbol?", with "+data.key_symbol+" nearby":"")+". Style: warm hand-drawn marker illustration with thick black outlines on cream background, simple expressive stick figures with round heads, soft muted red and teal accents. No text, no labels, no words, no letters anywhere in the image.";
+        // Schritt 2: Poster-Sketchnote Prompt aus extrahierten Sektionen bauen
+        var secCount=Math.min(data.sections.length,6);
+        var secDesc="";
+        for(var si=0;si<secCount;si++){
+          var sec=data.sections[si];
+          secDesc+="Section "+(si+1)+": heading '"+sec.heading+"'";
+          if(sec.points&&sec.points.length>0)secDesc+=", bullet points: "+sec.points.join(", ");
+          if(sec.icon)secDesc+=", with illustration of "+sec.icon;
+          secDesc+=". ";
+        }
+        var imgPrompt="A professional sketchnote poster in German language. Title banner at top: '"+data.title+"'"+(data.subtitle?", subtitle: '"+data.subtitle+"'":"")+". Layout: "+secCount+" numbered sections arranged in a 2-row grid, each in a rounded box. "+secDesc+"At the bottom: a takeaway banner"+(data.takeaway?" saying '"+data.takeaway+"'":"")+". Style: clean hand-drawn sketchnote, white background, thick black marker outlines, illustrated figures with round heads and simple bodies (NOT stick figures), handwritten German text, bold headings, bullet points with dots, pink and rose accent colors with black, decorative hearts and stars, speech bubbles, arrows connecting ideas. Like a Bikablo visual facilitation poster.";
         console.log("[KI-Bild] Prompt an GPT:",imgPrompt);
 
         // Schritt 3: Bild generieren
@@ -412,7 +421,7 @@ function App() {
       doc+='<div class="page-break"></div><h2>KI-Bilder ('+c.kiBilder.length+')</h2>';
       for(var ki=0;ki<c.kiBilder.length;ki++){
         var kb=c.kiBilder[ki];var imgSrc=kiBildData[kb.id];
-        doc+='<div class="sk"><h3>Problemtrance vs. Loesungstrance</h3>';
+        doc+='<div class="sk"><h3>Coaching Sketchnote</h3>';
         if(kb.createdAt)doc+='<p style="font-size:9pt;color:#8b7d6b">'+new Date(kb.createdAt).toLocaleDateString("de-DE",{day:"numeric",month:"long",year:"numeric"})+'</p>';
         if(imgSrc)doc+='<div style="text-align:center;margin:10px 0"><img src="'+imgSrc+'" style="max-width:100%;border-radius:6px" /></div>';
         if(kb.prompt)doc+='<p style="font-size:9pt;color:#8b7d6b;font-style:italic">Prompt: '+kb.prompt.slice(0,200)+'...</p>';
@@ -669,7 +678,7 @@ function App() {
         // Panel-Header
         h("div",{style:Object.assign({},BOX,{padding:"6px 8px",borderBottom:"1px solid "+P.brd,display:"flex",justifyContent:"space-between",alignItems:"center"})},
           h("span",{style:{fontSize:12,fontWeight:600,color:skType==="ki-bild"?"#6b4f8a":P.warmDk,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},
-            skType==="bikablo"?(dispSk&&dispSk.title?dispSk.title:"Skizze"):(curKiBilder.length>0?"Problemtrance vs. Loesungstrance":"KI-Bild")),
+            skType==="bikablo"?(dispSk&&dispSk.title?dispSk.title:"Skizze"):(curKiBilder.length>0?"Coaching Sketchnote":"KI-Bild")),
           h("div",{style:{display:"flex",gap:3,flexShrink:0}},
             h("button",{onClick:function(){setExpMenu(!expMenu);},style:{padding:"1px 5px",borderRadius:4,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:9}},"Exp"),
             skType==="bikablo"&&h("button",{onClick:genSketch,disabled:skLd,style:{padding:"1px 5px",borderRadius:4,border:"1px solid "+P.warm,background:P.warmLt,cursor:"pointer",fontSize:9,color:P.warmDk}},"Neu"),
@@ -695,7 +704,7 @@ function App() {
               h("div",{style:{color:P.txtLt,fontSize:11,marginTop:4}},kiBildTime+"s"),
               h("button",{onClick:stopKiBild,style:{marginTop:10,padding:"5px 16px",borderRadius:12,border:"1px solid "+P.brd,background:"white",cursor:"pointer",fontSize:11,color:P.danger}},"Abbrechen")):
             kiBild?h("img",{src:kiBild,style:{maxWidth:"100%",maxHeight:"100%",borderRadius:6,objectFit:"contain"}}):
-            h("div",{style:{color:P.txtLt,fontSize:12,textAlign:"center",padding:16}},h("div",{style:{fontSize:28,marginBottom:8}},"\uD83C\uDFA8"),h("div",null,"Klicke ",h("b",null,"KI-Bild")," oder ",h("b",null,"Erstellen")),h("div",{style:{fontSize:10,marginTop:6,color:"#8b7d6b"}},"Visualisiert Problemtrance vs. Loesungstrance"))
+            h("div",{style:{color:P.txtLt,fontSize:12,textAlign:"center",padding:16}},h("div",{style:{fontSize:28,marginBottom:8}},"\uD83C\uDFA8"),h("div",null,"Klicke ",h("b",null,"KI-Bild")," oder ",h("b",null,"Erstellen")),h("div",{style:{fontSize:10,marginTop:6,color:"#8b7d6b"}},"Erstellt eine Sketchnote aus dem Coaching"))
           )),
         // Legende (nur fuer Bikablo)
         skType==="bikablo"&&dispSk&&h("div",{style:Object.assign({},BOX,{padding:"4px 8px",borderTop:"1px solid "+P.brd,display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"})},
