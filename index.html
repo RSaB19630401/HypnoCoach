@@ -18,8 +18,7 @@ input,textarea{font-size:16px!important}
 <div id="root"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
-<script type="text/babel">
+<script type="text/javascript">
 var h = React.createElement;
 var useState = React.useState;
 var useRef = React.useRef;
@@ -43,6 +42,35 @@ var BOX = {width:"100%",maxWidth:"100%",overflow:"hidden",boxSizing:"border-box"
 
 function sLoad() { try{var d=localStorage.getItem("hc-cases");return d?JSON.parse(d):[];}catch(e){return[];} }
 function sSave(c) { try{localStorage.setItem("hc-cases",JSON.stringify(c));}catch(e){} }
+
+// ═══ IndexedDB (robuster als localStorage, groesseres Limit) ═══
+var DB_NAME="hc-db", DB_STORE="kv", DB_KEY="cases", DB_VER=1;
+var HAS_IDB=typeof indexedDB!=="undefined";
+function idbOpen(cb){
+  if(!HAS_IDB){cb(new Error("no-idb"));return;}
+  var req=indexedDB.open(DB_NAME,DB_VER);
+  req.onupgradeneeded=function(e){var db=e.target.result;if(!db.objectStoreNames.contains(DB_STORE))db.createObjectStore(DB_STORE);};
+  req.onsuccess=function(e){cb(null,e.target.result);};
+  req.onerror=function(e){cb(e.target.error||new Error("idb-open"));};
+}
+function idbGet(cb){
+  idbOpen(function(err,db){
+    if(err){cb(err);return;}
+    try{var g=db.transaction(DB_STORE,"readonly").objectStore(DB_STORE).get(DB_KEY);
+      g.onsuccess=function(){cb(null,g.result);};g.onerror=function(){cb(g.error);};
+    }catch(e){cb(e);}
+  });
+}
+function idbSet(data){
+  idbOpen(function(err,db){
+    if(err)return;
+    try{db.transaction(DB_STORE,"readwrite").objectStore(DB_STORE).put(data,DB_KEY);}catch(e){}
+  });
+}
+// Speichert in beide: IndexedDB (primaer) + localStorage (Backup-Spiegel)
+function store(c){idbSet(c);sSave(c);}
+// Persistenten Speicher anfordern (reduziert Loeschung durch iOS/Browser)
+if(typeof navigator!=="undefined"&&navigator.storage&&navigator.storage.persist){try{navigator.storage.persist();}catch(e){}}
 
 function apiCall(sys, msgs, onOk, onErr) {
   if (WORKER_URL.indexOf("DEIN-NAME") !== -1) { onErr("Bitte Worker-URL in index.html eintragen!"); return; }
@@ -127,10 +155,12 @@ function App() {
   var _lis=useState(false),isListening=_lis[0],setIsListening=_lis[1];
   var speechRef=useRef(null);
   var baseTextRef=useRef("");
+  var wantListenRef=useRef(false);
+  var lastCombinedRef=useRef("");
   var mob=typeof window!=="undefined"&&window.innerWidth<700;
   var hasSpeech=typeof window!=="undefined"&&(window.SpeechRecognition||window.webkitSpeechRecognition);
 
-  var save=function(u){setCases(u);sSave(u);};
+  var save=function(u){setCases(u);store(u);};
   var curM=[];
   var displayM=[];
   if(aC!==null&&aS!==null&&cases[aC]&&cases[aC].sessions){
@@ -147,54 +177,90 @@ function App() {
   var reversedM=displayM.slice().reverse();
 
   useEffect(function(){if(endRef.current)endRef.current.scrollIntoView({behavior:"smooth"});},[curM.length,wait]);
+  // Beim Start: aus IndexedDB laden (primaere Quelle). Falls leer, localStorage-Daten migrieren.
+  useEffect(function(){
+    idbGet(function(err,data){
+      if(!err&&data&&data.length>0){setCases(data);}
+      else{var ls=sLoad();if(ls.length>0)idbSet(ls);}
+    });
+  },[]);
 
   var newCase=function(){var nc={id:String(Date.now()),title:"Neues Thema",createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),sessions:[],sketches:[],summary:""};var u=cases.concat([nc]);save(u);return u.length-1;};
   var newSess=function(ci){var u=cases.slice();u[ci].sessions.push({id:String(Date.now()),startedAt:new Date().toISOString(),messages:[]});u[ci].updatedAt=new Date().toISOString();save(u);setAC(ci);setAS(u[ci].sessions.length-1);setView("chat");setSbOpen(false);setShowSk(false);setSkI(-1);};
-  var resSess=function(ci,si){var fresh=sLoad();setCases(fresh);setAC(ci);setAS(si);setView("chat");setSbOpen(false);setShowSk(false);};
+  var resSess=function(ci,si){setAC(ci);setAS(si);setView("chat");setSbOpen(false);setShowSk(false);};
   var delCase=function(ci){save(cases.filter(function(_,i){return i!==ci;}));if(aC===ci){setAC(null);setAS(null);setView("home");}setCfmDel(null);};
 
-  var send=function(text){
-    if(!text||!text.trim()||wait||aC===null||aS===null)return;
-    var u=cases.slice();u[aC].sessions[aS].messages.push({role:"user",content:text.trim()});u[aC].updatedAt=new Date().toISOString();save(u);
-    setInp("");setWait(true);setErr(null);
+  var doCoachCall=function(sessMsgs,summary){
+    setWait(true);setErr(null);
     var ctx=[];
-    if(u[aC].summary){ctx.push({role:"user",content:"[Zusammenfassung: "+u[aC].summary+"]"});ctx.push({role:"assistant",content:"Verstanden."});}
-    var msgs=u[aC].sessions[aS].messages.slice(-30);
-    for(var i=0;i<msgs.length;i++)ctx.push({role:msgs[i].role,content:msgs[i].content});
+    if(summary){ctx.push({role:"user",content:"[Zusammenfassung: "+summary+"]"});ctx.push({role:"assistant",content:"Verstanden."});}
+    var recent=sessMsgs.slice(-30);
+    for(var i=0;i<recent.length;i++)ctx.push({role:recent[i].role,content:recent[i].content});
     apiCall(COACH_SYS,ctx,function(reply){
-      setCases(function(prev){var u2=prev.slice();u2[aC].sessions[aS].messages.push({role:"assistant",content:reply});u2[aC].updatedAt=new Date().toISOString();
-        if(u2[aC].sessions[aS].messages.length<=3&&u2[aC].title==="Neues Thema")u2[aC].title=text.trim().slice(0,100);sSave(u2);return u2;});
+      setCases(function(prev){var u2=prev.slice();var sess=u2[aC].sessions[aS];sess.messages.push({role:"assistant",content:reply});u2[aC].updatedAt=new Date().toISOString();
+        if(sess.messages.length<=3&&u2[aC].title==="Neues Thema"){for(var k=0;k<sess.messages.length;k++){if(sess.messages[k].role==="user"){u2[aC].title=sess.messages[k].content.slice(0,100);break;}}}
+        store(u2);
+        if(sess.messages.length>=24&&sess.messages.length%10===4)setTimeout(function(){genSum(aC);},100);
+        return u2;});
       setWait(false);
     },function(e){setErr(e);setWait(false);});
   };
+  var send=function(text){
+    if(!text||!text.trim()||wait||aC===null||aS===null)return;
+    var u=cases.slice();u[aC].sessions[aS].messages.push({role:"user",content:text.trim()});u[aC].updatedAt=new Date().toISOString();save(u);
+    setInp("");
+    doCoachCall(u[aC].sessions[aS].messages,u[aC].summary);
+  };
+  var retry=function(){
+    if(wait||aC===null||aS===null)return;
+    var sess=cases[aC].sessions[aS];if(!sess||sess.messages.length===0)return;
+    doCoachCall(sess.messages,cases[aC].summary);
+  };
   var toggleSpeech=function(){
     var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!SR){setErr("Spracheingabe wird von diesem Browser nicht unterstuetzt");return;}
+    if(!SR){setErr("Spracheingabe wird hier nicht unterstuetzt. Tipp: Tippe ins Textfeld und nutze das Mikrofon-Symbol auf deiner Bildschirmtastatur.");return;}
     if(isListening){
+      wantListenRef.current=false;
       if(speechRef.current){try{speechRef.current.stop();}catch(e){}}
       setIsListening(false);return;
     }
+    var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
     var rec=new SR();
     rec.lang="de-DE";
-    rec.continuous=true;
+    rec.continuous=isIOS?false:true;
     rec.interimResults=true;
     baseTextRef.current=inp;
+    lastCombinedRef.current=inp;
     speechRef.current=rec;
+    wantListenRef.current=true;
     rec.onresult=function(event){
       var transcript="";
       for(var i=0;i<event.results.length;i++){transcript+=event.results[i][0].transcript;}
       var base=baseTextRef.current;
-      if(base&&base.trim()){setInp(base+" "+transcript);}else{setInp(transcript);}
+      var combined=(base&&base.trim())?(base+" "+transcript):transcript;
+      lastCombinedRef.current=combined;
+      setInp(combined);
     };
     rec.onerror=function(event){
-      if(event.error!=="aborted"){setErr("Mikrofon: "+event.error);}
+      if(event.error==="not-allowed"||event.error==="service-not-allowed"){
+        setErr("Mikrofon-Zugriff wurde verweigert. Bitte in den Browser-Einstellungen erlauben.");
+        wantListenRef.current=false;
+      }else if(event.error!=="aborted"&&event.error!=="no-speech"){
+        setErr("Mikrofon: "+event.error);
+      }
+    };
+    rec.onend=function(){
+      // iOS: continuous wird nicht unterstuetzt, daher Auto-Neustart fuer durchgehendes Diktat
+      if(wantListenRef.current&&isIOS){
+        baseTextRef.current=lastCombinedRef.current;
+        try{rec.start();return;}catch(e){}
+      }
       setIsListening(false);
     };
-    rec.onend=function(){setIsListening(false);};
     try{rec.start();setIsListening(true);}catch(e){setErr("Mikrofon: "+e.message);setIsListening(false);}
   };
-  var genSum=function(ci){if(!cases[ci])return;var all=[];var ss=cases[ci].sessions;for(var i=0;i<ss.length;i++)for(var j=0;j<ss[i].messages.length;j++)all.push(ss[i].messages[j]);if(all.length<4)return;var t="";for(var k=0;k<all.length;k++)t+=(all[k].role==="user"?"Klient":"Coach")+": "+all[k].content+"\n";apiCall(SUMMARY_SYS,[{role:"user",content:t.slice(-4000)}],function(s){setCases(function(prev){var u=prev.slice();u[ci].summary=s;sSave(u);return u;});},function(e){});};
-  var genSketch=function(){if(aC===null)return;var all=[];var ss=cases[aC].sessions;for(var i=0;i<ss.length;i++)for(var j=0;j<ss[i].messages.length;j++)all.push(ss[i].messages[j]);if(all.length<2){setErr("Erst ein Gespraech fuehren.");return;}setSkLd(true);setShowSk(true);var t="";var start=Math.max(0,all.length-40);for(var k=start;k<all.length;k++)t+=(all[k].role==="user"?"Klient":"Coach")+": "+all[k].content+"\n";apiCall(SKETCH_SYS,[{role:"user",content:t}],function(raw){try{var cleaned=raw.replace(/```json/g,"").replace(/```/g,"").trim();var parsed=JSON.parse(cleaned);parsed.createdAt=new Date().toISOString();setCases(function(prev){var u=prev.slice();u[aC].sketches.push(parsed);sSave(u);return u;});setSkI(curSk.length);}catch(e){setErr("Skizze: "+e.message);}setSkLd(false);},function(e){setErr("Skizze: "+e);setSkLd(false);});};
+  var genSum=function(ci){if(!cases[ci])return;var all=[];var ss=cases[ci].sessions;for(var i=0;i<ss.length;i++)for(var j=0;j<ss[i].messages.length;j++)all.push(ss[i].messages[j]);if(all.length<4)return;var t="";for(var k=0;k<all.length;k++)t+=(all[k].role==="user"?"Klient":"Coach")+": "+all[k].content+"\n";apiCall(SUMMARY_SYS,[{role:"user",content:t.slice(-4000)}],function(s){setCases(function(prev){var u=prev.slice();u[ci].summary=s;store(u);return u;});},function(e){});};
+  var genSketch=function(){if(aC===null)return;var all=[];var ss=cases[aC].sessions;for(var i=0;i<ss.length;i++)for(var j=0;j<ss[i].messages.length;j++)all.push(ss[i].messages[j]);if(all.length<2){setErr("Erst ein Gespraech fuehren.");return;}setSkLd(true);setShowSk(true);var t="";var start=Math.max(0,all.length-40);for(var k=start;k<all.length;k++)t+=(all[k].role==="user"?"Klient":"Coach")+": "+all[k].content+"\n";apiCall(SKETCH_SYS,[{role:"user",content:t}],function(raw){try{var cleaned=raw.replace(/```json/g,"").replace(/```/g,"").trim();var parsed=JSON.parse(cleaned);parsed.createdAt=new Date().toISOString();setCases(function(prev){var u=prev.slice();u[aC].sketches.push(parsed);store(u);return u;});setSkI(curSk.length);}catch(e){setErr("Skizze: "+e.message);}setSkLd(false);},function(e){setErr("Skizze: "+e);setSkLd(false);});};
 
   var buildDoc=function(ci){var c=cases[ci!==undefined?ci:aC];if(!c)return"";
     var bcols={problem:"#e74c3c",resource:"#27ae60",insight:"#f39c12",goal:"#3498db",step:"#e67e22"};
@@ -302,11 +368,11 @@ function App() {
       h("div",{style:{display:"flex",gap:2}},h("button",{onClick:genSketch,disabled:skLd,style:{padding:"2px 5px",borderRadius:8,border:"1px solid "+P.warm,background:P.warmLt,cursor:"pointer",fontSize:9,color:P.warmDk}},"Skizze"))),
     h("div",{style:Object.assign({},BOX,{padding:"6px 4px",background:"white",borderBottom:"1px solid "+P.brd})},
       h("div",{style:Object.assign({},BOX,{display:"flex",gap:3})},
-        h("input",{value:inp,onChange:function(e){setInp(e.target.value);},onKeyDown:function(e){if(e.key==="Enter"){if(isListening&&speechRef.current){try{speechRef.current.stop();}catch(e2){}}send(inp);}},placeholder:isListening?"Sprich jetzt...":"Nachricht...",style:{display:"block",width:"1px",flex:"1 1 auto",minWidth:0,padding:"8px 6px",borderRadius:8,border:"1px solid "+(isListening?"#e74c3c":P.brd),fontSize:16,boxSizing:"border-box"}}),
+        h("input",{value:inp,onChange:function(e){setInp(e.target.value);},onKeyDown:function(e){if(e.key==="Enter"){if(isListening&&speechRef.current){wantListenRef.current=false;try{speechRef.current.stop();}catch(e2){}}send(inp);}},placeholder:isListening?"Sprich jetzt...":"Nachricht...",style:{display:"block",width:"1px",flex:"1 1 auto",minWidth:0,padding:"8px 6px",borderRadius:8,border:"1px solid "+(isListening?"#e74c3c":P.brd),fontSize:16,boxSizing:"border-box"}}),
         hasSpeech&&h("button",{onClick:toggleSpeech,style:{flexShrink:0,width:36,height:36,borderRadius:8,border:isListening?"2px solid #e74c3c":"1px solid "+P.brd,background:isListening?"#fde8e8":"white",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",animation:isListening?"pulse 1.5s infinite":"none"}},isListening?"\u23F9":"\uD83C\uDFA4"),
-        h("button",{onClick:function(){if(isListening&&speechRef.current){try{speechRef.current.stop();}catch(e2){}}send(inp);},disabled:!inp.trim()||wait,style:{flexShrink:0,width:36,height:36,borderRadius:8,border:"none",background:inp.trim()?P.warm:P.brd,color:"white",cursor:inp.trim()?"pointer":"not-allowed",fontSize:14}},"Go")),
+        h("button",{onClick:function(){if(isListening&&speechRef.current){wantListenRef.current=false;try{speechRef.current.stop();}catch(e2){}}send(inp);},disabled:!inp.trim()||wait,style:{flexShrink:0,width:36,height:36,borderRadius:8,border:"none",background:inp.trim()?P.warm:P.brd,color:"white",cursor:inp.trim()?"pointer":"not-allowed",fontSize:14}},"Go")),
       wait&&h("div",{style:{padding:"4px 6px",color:P.txtLt,fontSize:11}},"Denkt nach..."),
-      err&&h("div",{style:{padding:"3px 6px",borderRadius:4,background:P.dangerLt,color:P.danger,fontSize:10,marginTop:3}},err," ",h("button",{onClick:function(){setErr(null);},style:{marginLeft:4,background:"none",border:"none",cursor:"pointer",color:P.danger,fontSize:9}},"X"))),
+      err&&h("div",{style:{padding:"3px 6px",borderRadius:4,background:P.dangerLt,color:P.danger,fontSize:10,marginTop:3}},err," ",h("button",{onClick:retry,disabled:wait,style:{marginLeft:4,padding:"1px 6px",borderRadius:4,background:P.danger,border:"none",cursor:"pointer",color:"white",fontSize:9}},"Erneut senden"),h("button",{onClick:function(){setErr(null);},style:{marginLeft:4,background:"none",border:"none",cursor:"pointer",color:P.danger,fontSize:9}},"X"))),
     h("div",{style:Object.assign({},BOX,{flex:1,display:"flex",overflow:"hidden",position:"relative"})},
       sbOpen&&h("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:800}},
         h("div",{style:{position:"absolute",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.3)"},onClick:function(){setSbOpen(false);}}),
